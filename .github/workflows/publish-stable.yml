@@ -92,3 +92,42 @@ jobs:
 
       - name: Summary
         run: echo "Published stable \`stream-droid@${{ steps.version.outputs.version }}\` — install with \`bunx stream-droid\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # Publish the TypeDoc API reference to GitHub Pages, tracking each stable
+  # release. Runs after the release is cut, in the same run (a Pages workflow
+  # triggered by the bot-created release/tag wouldn't fire — GITHUB_TOKEN events
+  # don't start new runs). One-time setup: Settings → Pages → Source = GitHub Actions.
+  deploy-docs:
+    name: Deploy API docs to Pages
+    needs: publish-stable
+    if: ${{ github.repository == 'davidokonji/stream-droid' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main # the version-bump commit publish-stable just pushed
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate TypeDoc
+        run: bun run docs:api
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/api
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "stream-droid",
+  "entryPoints": ["src/capture/types.ts"],
+  "projectDocuments": [
+    "docs/setup.md",
+    "docs/architecture.md",
+    "docs/capture-backends.md",
+    "docs/control-and-semantics.md",
+    "docs/remote-sharing.md"
+  ],
+  "readme": "README.md",
+  "out": "docs/api",
+  "tsconfig": "tsconfig.json",
+  "excludeExternals": true
+}
