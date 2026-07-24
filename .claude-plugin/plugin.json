@@ -1,0 +1,19 @@
+{
+  "name": "stream-droid",
+  "description": "See and drive an Android emulator or device: screenshot the screen, read its on-screen UI, and tap/type/swipe/press keys via the stream-droid server.",
+  "version": "0.1.0",
+  "author": {
+    "name": "David Okonji"
+  },
+  "homepage": "https://github.com/davidokonji/stream-droid",
+  "repository": "https://github.com/davidokonji/stream-droid",
+  "license": "MIT",
+  "keywords": [
+    "android",
+    "emulator",
+    "adb",
+    "automation",
+    "agent",
+    "uiautomator"
+  ]
+}

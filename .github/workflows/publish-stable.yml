@@ -1,0 +1,94 @@
+name: Publish stable
+
+# Manually cut a stable release from the Actions tab: pick a semver bump, and the
+# workflow bumps package.json, tags it, pushes, and publishes to npm under the
+# default `latest` dist-tag.
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (semver bump)'
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+# `contents: write` to push the version-bump commit/tag; `id-token: write` for
+# npm provenance (needs a public repo — drop --provenance below if private).
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: publish-stable
+  cancel-in-progress: false
+
+jobs:
+  publish-stable:
+    name: Publish stable to npm
+    # Guard: only ever publish from this repo, never from forks.
+    if: ${{ github.repository == 'davidokonji/stream-droid' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Set up node (npm registry auth)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint, typecheck & format check
+        run: bun run check
+
+      - name: Test
+        run: bun test
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version & tag
+        id: version
+        run: |
+          NEW=$(npm version ${{ inputs.release_type }} -m "release: %s [skip beta]")
+          echo "version=${NEW#v}" >> "$GITHUB_OUTPUT"
+          echo "Releasing stream-droid@${NEW#v} (${{ inputs.release_type }} → dist-tag: latest)"
+
+      # Pushes made with GITHUB_TOKEN don't trigger other workflows, so this
+      # bump commit won't kick off publish-beta (the [skip beta] tag is a backstop).
+      - name: Push commit & tag
+        run: git push --follow-tags
+
+      # `npm publish` runs the package's prepublishOnly (bun run build) to
+      # (re)build public/ before packing. No --tag → publishes as `latest`.
+      - name: Publish to npm (latest tag)
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Cut a GitHub release from the tag pushed above (it already exists, so this
+      # just attaches release notes to it).
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          gh release create "$TAG" \
+            --title "stream-droid $TAG" \
+            --generate-notes
+
+      - name: Summary
+        run: echo "Published stable \`stream-droid@${{ steps.version.outputs.version }}\` — install with \`bunx stream-droid\`" >> "$GITHUB_STEP_SUMMARY"
