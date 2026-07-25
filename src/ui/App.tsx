@@ -44,7 +44,7 @@ export function App() {
   // Reflect what's streaming in the browser-tab title (● live · ⚠ disconnected).
   useEffect(() => {
     const name = avds.find((a) => a.serial === serial)?.name ?? serial;
-    document.title = name ? `${TITLE_MARK[state] ?? ''}${name} · stream-droid` : 'stream-droid';
+    document.title = name ? `${TITLE_MARK[state] ?? ''}${name} · streaming` : 'No device streaming';
   }, [serial, state, avds]);
 
   const startBoot = async (avd: string): Promise<void> => {
