@@ -1,11 +1,22 @@
+import { tv } from 'tailwind-variants';
 import type { AvdStatus } from '../types';
 import { AvdRow } from './AvdRow';
+
+const toggle = tv({
+  base: 'flex items-center gap-1.5 opacity-80',
+  variants: {
+    disabled: { true: 'cursor-not-allowed opacity-40' },
+  },
+});
 
 interface Props {
   avds: AvdStatus[];
   activeSerial: string | null;
   liveSerial: string | null;
   booting: Set<string>;
+  // Any AVD booting? Disables conflicting controls (other Start/Stream buttons
+  // and the headless toggle) until the boot resolves.
+  busy: boolean;
   headless: boolean;
   onHeadless: (v: boolean) => void;
   onStream: (serial: string) => void;
@@ -18,6 +29,7 @@ export function Sidebar({
   activeSerial,
   liveSerial,
   booting,
+  busy,
   headless,
   onHeadless,
   onStream,
@@ -51,6 +63,7 @@ export function Sidebar({
             active={a.serial === activeSerial}
             streaming={a.serial != null && a.serial === liveSerial}
             booting={booting.has(a.name)}
+            busy={busy}
             onStream={(s) => {
               onStream(s);
               onClose();
@@ -59,8 +72,13 @@ export function Sidebar({
           />
         ))}
       </div>
-      <label className="flex items-center gap-1.5 opacity-80">
-        <input type="checkbox" checked={headless} onChange={(e) => onHeadless(e.target.checked)} />
+      <label className={toggle({ disabled: busy })} aria-disabled={busy}>
+        <input
+          type="checkbox"
+          checked={headless}
+          disabled={busy}
+          onChange={(e) => onHeadless(e.target.checked)}
+        />
         headless (<code>-no-window</code>)
       </label>
       <div className="text-[12px] opacity-45">

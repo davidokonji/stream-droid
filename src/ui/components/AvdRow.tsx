@@ -22,18 +22,24 @@ interface Props {
   active: boolean;
   streaming: boolean;
   booting: boolean;
+  // A boot is in progress somewhere, so conflicting actions (a second boot, or
+  // starting a new stream) are disabled until it clears. An already-live stream
+  // is left alone.
+  busy: boolean;
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
 }
 
-export function AvdRow({ avd, active, streaming, booting, onStream, onStart }: Props) {
+export function AvdRow({ avd, active, streaming, booting, busy, onStream, onStart }: Props) {
   const s = row({ active });
   const trailing =
     avd.running && avd.serial ? (
       streaming ? (
         <LiveDot />
       ) : (
-        <Button onClick={() => onStream(avd.serial!)}>Stream</Button>
+        <Button disabled={busy} onClick={() => onStream(avd.serial!)}>
+          Stream
+        </Button>
       )
     ) : booting ? (
       <span className={s.booting()}>
@@ -41,7 +47,7 @@ export function AvdRow({ avd, active, streaming, booting, onStream, onStart }: P
         booting…
       </span>
     ) : (
-      <StartButton onStart={() => onStart(avd.name)} />
+      <StartButton disabled={busy} onStart={() => onStart(avd.name)} />
     );
   return (
     <div className={s.root()}>

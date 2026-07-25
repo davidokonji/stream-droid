@@ -121,6 +121,7 @@ export function App() {
             activeSerial={serial}
             liveSerial={live ? serial : null}
             booting={booting}
+            busy={booting.size > 0}
             headless={headless}
             onHeadless={setHeadless}
             onStream={connect}
