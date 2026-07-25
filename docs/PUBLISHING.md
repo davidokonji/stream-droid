@@ -158,7 +158,7 @@ a stream-droid server running locally — see the skill's Prerequisites section
 
 ## 4. Continuous integration & automated releases
 
-Three GitHub Actions workflows are in `.github/workflows/`:
+Four GitHub Actions workflows are in `.github/workflows/`:
 
 - **`ci.yml`** — on every push/PR to `main`: `bun install`, then lint (oxlint),
   format check (oxfmt), typecheck (tsc), and build. This is the green-check gate.
@@ -170,7 +170,14 @@ Three GitHub Actions workflows are in `.github/workflows/`:
 - **`publish-stable.yml`** — **manual** (`workflow_dispatch`) from the Actions
   tab. Pick a **release type** (`patch` / `minor` / `major`); the workflow bumps
   `package.json`, commits + tags it, pushes to `main`, publishes to the default
-  **`latest`** dist-tag, and cuts a **GitHub release** `v<version>`.
+  **`latest`** dist-tag, cuts a **GitHub release** `v<version>`, and then deploys
+  the TypeDoc site to GitHub Pages.
+- **`deploy-docs.yml`** — **manual** (`workflow_dispatch`). Rebuilds the TypeDoc
+  site (`bun run docs:api`) and deploys it to GitHub Pages **without** touching
+  the version or cutting a release. Use it to push docs-only changes (guides under
+  `docs/`, the README, or API comments) live between releases; dispatch it from
+  the branch whose docs you want published (usually `main`). It only needs Pages
+  permissions (`pages: write` + `id-token: write`) — no `contents: write`.
 
 Both publish workflows publish with `--provenance` and are **gated to this repo**
 (`github.repository == 'davidokonji/stream-droid'`) so forks can never publish.
