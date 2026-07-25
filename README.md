@@ -7,6 +7,7 @@ tap, swipe, type, hardware keys — for humans and AI agents.**
 [![npm version](https://img.shields.io/npm/v/stream-droid)](https://www.npmjs.com/package/stream-droid)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![docs](https://img.shields.io/badge/docs-online-blue)](https://davidokonji.github.io/stream-droid/)
+[![agents](https://img.shields.io/badge/agent%20skill-install-8A2BE2)](#install-the-skill)
 
 Point stream-droid at a running emulator or phone and it serves a live view of
 the screen in the browser that you can click, drag, and type into. A sidebar
@@ -146,15 +147,35 @@ bun skills/stream-droid/scripts/drive.mjs ui internet  # elements matching "inte
 bun skills/stream-droid/scripts/drive.mjs tap:text "Network & internet"
 ```
 
-The helper scripts are plain ESM and run under **bun or node ≥ 18**. Install the
-skill into Claude Code as a plugin — `/plugin marketplace add davidokonji/stream-droid`
-then `/plugin install stream-droid@stream-droid` (surfaces as
-`/stream-droid:stream-droid`) — into any agent with
-`npx skills add davidokonji/stream-droid`, or by copying it into `~/.claude/skills/`.
+The helper scripts are plain ESM and run under **bun or node ≥ 18**.
+
+### Install the skill
+
+**Claude Code** — the repo is a self-contained plugin marketplace, so add it and
+install straight from the Claude Code prompt:
+
+```
+/plugin marketplace add davidokonji/stream-droid
+/plugin install stream-droid@stream-droid
+```
+
+It surfaces as **`/stream-droid:stream-droid`** (run `/reload-plugins` if it
+doesn't show up right away).
+
+**Any agent (skills.sh)** — install from the GitHub repo with the
+[skills.sh](https://skills.sh) CLI, no separate registry:
+
+```bash
+npx skills add davidokonji/stream-droid
+```
+
+**Manual** — copy `skills/stream-droid/` into `~/.claude/skills/` (personal, every
+project) or `.claude/skills/` (checked into a specific repo).
+
 Per-feature agent references (CLI, HTTP API, WebSocket protocol, capture, input,
 semantic layer, tunnel, UI) live in
-[`skills/stream-droid/references/`](skills/stream-droid/references/). Publishing
-details are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
+[`skills/stream-droid/references/`](skills/stream-droid/references/). Full
+publishing and install details are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Local development
 
