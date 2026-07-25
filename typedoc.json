@@ -9,7 +9,7 @@
     "docs/control-and-semantics.md",
     "docs/remote-sharing.md"
   ],
-  "readme": "README.md",
+  "readme": ".typedoc-readme.md",
   "out": "docs/api",
   "tsconfig": "tsconfig.json",
   "excludeExternals": true
