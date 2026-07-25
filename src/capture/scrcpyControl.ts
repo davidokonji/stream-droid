@@ -12,7 +12,7 @@ const POINTER_ID_FINGER = 0n;
 const PRESSURE_FULL = 0xffff; // u16 fixed-point 1.0
 const PRESSURE_NONE = 0x0000; // release
 
-// Android KeyEvent.KEYCODE_* integers for the keys the UI exposes.
+// Android KeyEvent.KEYCODE_* integers for the keys we expose.
 export const KEYCODES: Record<string, number> = {
   Enter: 66,
   Backspace: 67,
@@ -24,6 +24,22 @@ export const KEYCODES: Record<string, number> = {
   Home: 3,
   Back: 4,
   AppSwitch: 187,
+  DpadCenter: 23,
+  VolumeUp: 24,
+  VolumeDown: 25,
+  VolumeMute: 164,
+  Power: 26,
+  Camera: 27,
+  Menu: 82,
+  Notifications: 83,
+  Search: 84,
+  MediaPlayPause: 85,
+  MediaNext: 87,
+  MediaPrevious: 88,
+  PageUp: 92,
+  PageDown: 93,
+  Escape: 111,
+  Delete: 112,
 };
 
 // INJECT_TOUCH_EVENT — 32 bytes.

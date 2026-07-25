@@ -1,12 +1,9 @@
-// The live device surface: a <video> (H.264/jMuxer) and a <canvas> (gRPC PNG),
-// one shown per codec. In h264 mode the <video> shows its `poster` (an instant
-// screenshot set by the hook) until the first decoded frame renders. Pointer
-// gestures become normalized tap/swipe control messages.
-
-import { useRef, type PointerEvent, type RefObject } from 'react';
+import { useRef, type RefObject } from 'react';
 import { tv } from 'tailwind-variants';
 import type { Codec, Control } from '../types';
 import { LiveDot } from './LiveDot';
+
+const LONG_PRESS_MS = 500; // a stationary hold this long becomes a long-press
 
 const screen = tv({
   slots: {
@@ -34,13 +31,13 @@ interface Props {
 const clamp = (v: number): number => Math.min(1, Math.max(0, v));
 
 export function Screen({ videoRef, canvasRef, codec, live, controllable, onControl }: Props) {
-  const down = useRef<{ x: number; y: number } | null>(null);
+  const down = useRef<{ x: number; y: number; t: number } | null>(null);
   const png = codec === 'png';
   const { root, surface, badge } = screen();
 
-  const norm = (ev: PointerEvent): { x: number; y: number } => {
-    const el = png ? canvasRef.current : videoRef.current;
-    const r = el!.getBoundingClientRect();
+  const rect = (): DOMRect => (png ? canvasRef.current! : videoRef.current!).getBoundingClientRect();
+  const norm = (ev: { clientX: number; clientY: number }): { x: number; y: number } => {
+    const r = rect();
     return { x: clamp((ev.clientX - r.left) / r.width), y: clamp((ev.clientY - r.top) / r.height) };
   };
 
@@ -49,20 +46,28 @@ export function Screen({ videoRef, canvasRef, codec, live, controllable, onContr
       className={root()}
       onPointerDown={(ev) => {
         if (!controllable) return;
-        down.current = norm(ev);
+        down.current = { ...norm(ev), t: Date.now() };
         (ev.target as HTMLElement).setPointerCapture(ev.pointerId);
       }}
       onPointerUp={(ev) => {
         const d = down.current;
         if (!d) return;
-        const u = norm(ev);
-        const moved = Math.hypot(u.x - d.x, u.y - d.y) > 0.02; // ~2% = swipe
-        onControl(
-          moved
-            ? { type: 'swipe', x1: d.x, y1: d.y, x2: u.x, y2: u.y, ms: 200 }
-            : { type: 'tap', x: u.x, y: u.y },
-        );
         down.current = null;
+        const u = norm(ev);
+        const held = Date.now() - d.t;
+        if (Math.hypot(u.x - d.x, u.y - d.y) > 0.02) {
+          onControl({ type: 'swipe', x1: d.x, y1: d.y, x2: u.x, y2: u.y, ms: 200 }); // ~2% = swipe
+        } else if (held >= LONG_PRESS_MS) {
+          onControl({ type: 'longPress', x: u.x, y: u.y, ms: held });
+        } else {
+          onControl({ type: 'tap', x: u.x, y: u.y });
+        }
+      }}
+      onWheel={(ev) => {
+        if (!controllable) return;
+        const r = rect();
+        const p = norm(ev);
+        onControl({ type: 'scroll', x: p.x, y: p.y, dx: ev.deltaX / r.width, dy: ev.deltaY / r.height });
       }}
     >
       {live && (

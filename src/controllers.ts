@@ -19,9 +19,14 @@ export type Control =
 
 export type Controller = (msg: Control) => void;
 
-// Messages a client may send over the WebSocket: raw controls, plus the
-// semantic `tapElement` (resolved to a tap server-side).
-export type Incoming = Control | { type: 'tapElement'; id?: string; text?: string };
+// Messages a client may send over the WebSocket: raw controls, the semantic
+// `tapElement` (resolved to a tap server-side), and the `longPress`/`scroll`
+// gestures (translated to a swipe server-side — see wsServer.ts).
+export type Incoming =
+  | Control
+  | { type: 'tapElement'; id?: string; text?: string }
+  | { type: 'longPress'; x: number; y: number; ms?: number }
+  | { type: 'scroll'; x: number; y: number; dx: number; dy: number };
 
 // adb-input backend: shells out per event. `input` names keys as strings.
 const ADB_KEYCODES: Record<string, string> = {
@@ -35,6 +40,22 @@ const ADB_KEYCODES: Record<string, string> = {
   Home: 'KEYCODE_HOME',
   Back: 'KEYCODE_BACK',
   AppSwitch: 'KEYCODE_APP_SWITCH',
+  DpadCenter: 'KEYCODE_DPAD_CENTER',
+  VolumeUp: 'KEYCODE_VOLUME_UP',
+  VolumeDown: 'KEYCODE_VOLUME_DOWN',
+  VolumeMute: 'KEYCODE_VOLUME_MUTE',
+  Power: 'KEYCODE_POWER',
+  Camera: 'KEYCODE_CAMERA',
+  Menu: 'KEYCODE_MENU',
+  Notifications: 'KEYCODE_NOTIFICATION',
+  Search: 'KEYCODE_SEARCH',
+  MediaPlayPause: 'KEYCODE_MEDIA_PLAY_PAUSE',
+  MediaNext: 'KEYCODE_MEDIA_NEXT',
+  MediaPrevious: 'KEYCODE_MEDIA_PREVIOUS',
+  PageUp: 'KEYCODE_PAGE_UP',
+  PageDown: 'KEYCODE_PAGE_DOWN',
+  Escape: 'KEYCODE_ESCAPE',
+  Delete: 'KEYCODE_FORWARD_DEL',
 };
 
 function adbController(size: CaptureMeta, adbArgs: (...r: string[]) => string[]): Controller {
@@ -135,7 +156,11 @@ const GRPC_KEYS: Record<string, string> = {
   AppSwitch: 'AppSwitch',
 };
 
-function grpcController(size: CaptureMeta, emu: EmulatorInput): Controller {
+function grpcController(
+  size: CaptureMeta,
+  emu: EmulatorInput,
+  adbArgs: (...r: string[]) => string[],
+): Controller {
   const px = (nx: number, ny: number): [number, number] => [nx * size.w, ny * size.h];
   return (msg) =>
     match(msg)
@@ -164,6 +189,16 @@ function grpcController(size: CaptureMeta, emu: EmulatorInput): Controller {
         if (k) {
           emu.keyDown(k);
           emu.keyUp(k);
+          return;
+        }
+        // Keys without a gRPC DOM-name mapping (volume, power, media, …) fall
+        // back to `adb input keyevent`, which is always available.
+        const code = ADB_KEYCODES[m.key];
+        if (code) {
+          spawn('adb', adbArgs('shell', 'input', 'keyevent', code), { stdio: 'ignore' }).on(
+            'error',
+            (e: Error) => log.error(e.message),
+          );
         }
       })
       .exhaustive();
@@ -176,7 +211,7 @@ export function pickController(
   adbArgs: (...r: string[]) => string[],
 ): { control: Controller; via: string } {
   const control = match(capture)
-    .with({ emulator: P.nonNullable }, (c) => grpcController(size, c.emulator))
+    .with({ emulator: P.nonNullable }, (c) => grpcController(size, c.emulator, adbArgs))
     .with({ writeControl: P.nonNullable }, (c) =>
       scrcpyController(size, c.writeControl, c.controlReady ?? (() => true), adbArgs),
     )
