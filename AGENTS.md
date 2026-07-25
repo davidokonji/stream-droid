@@ -16,9 +16,11 @@ client per device assumed, localhost-first.
 
 ## Stack & tooling
 
-- **Runtime:** [bun](https://bun.sh) ≥ 1.3.11 (pinned in `.bun-version`). Runs
-  TypeScript directly — **no** ts-node/tsc-to-JS for the server. `node:*` APIs
-  are used via bun.
+- **Runtime:** [bun](https://bun.sh) ≥ 1.3.11 (pinned in `.bun-version`) **or
+  node ≥ 20**. The server is TypeScript run directly — under bun natively, or
+  under node via `tsx` (a dependency). `bin/stream-droid.mjs` is the published
+  entry and picks the runtime (`typeof Bun`). Building the client bundle uses bun
+  (`bun build`), so **running** is bun-optional but **building** from source isn't.
 - **Language:** TypeScript, `strict`, **no `any`** (enforced by oxlint).
 - **Server deps:** `ws`, `@grpc/grpc-js` + `@grpc/proto-loader`, `ts-pattern`,
   `localtunnel`, `qrcode`.
@@ -50,6 +52,7 @@ doesn't pop a browser tab.
 ## Layout (where things live)
 
 ```
+bin/stream-droid.mjs  published bin: launches the server under bun (native) or node (tsx)
 src/
   server.ts        entry: match(config.mode) → help/list/kill/log/serve wiring only
   config.ts        parsed CLI/env → `config` singleton; isAuthorized(); fail()

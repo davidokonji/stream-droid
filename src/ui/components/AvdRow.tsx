@@ -9,6 +9,8 @@ const row = tv({
     root: 'flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5',
     dot: 'text-[9px]',
     name: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
+    booting: 'flex items-center gap-1.5 text-[12px] text-amber-300',
+    spinner: 'h-3 w-3 animate-spin rounded-full border border-amber-300/40 border-t-amber-300',
   },
   variants: {
     active: { true: { root: 'border-[#2f6feb] bg-[#12203b]' } },
@@ -19,25 +21,33 @@ interface Props {
   avd: AvdStatus;
   active: boolean;
   streaming: boolean;
+  booting: boolean;
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
 }
 
-export function AvdRow({ avd, active, streaming, onStream, onStart }: Props) {
+export function AvdRow({ avd, active, streaming, booting, onStream, onStart }: Props) {
   const s = row({ active });
+  const trailing =
+    avd.running && avd.serial ? (
+      streaming ? (
+        <LiveDot />
+      ) : (
+        <Button onClick={() => onStream(avd.serial!)}>Stream</Button>
+      )
+    ) : booting ? (
+      <span className={s.booting()}>
+        <span className={s.spinner()} />
+        booting…
+      </span>
+    ) : (
+      <StartButton onStart={() => onStart(avd.name)} />
+    );
   return (
     <div className={s.root()}>
-      <span className={s.dot()}>{avd.running ? '🟢' : '⚪'}</span>
+      <span className={s.dot()}>{avd.running ? '🟢' : booting ? '🟡' : '⚪'}</span>
       <span className={s.name()}>{avd.name}</span>
-      {avd.running && avd.serial ? (
-        streaming ? (
-          <LiveDot />
-        ) : (
-          <Button onClick={() => onStream(avd.serial!)}>Stream</Button>
-        )
-      ) : (
-        <StartButton onStart={() => onStart(avd.name)} />
-      )}
+      {trailing}
     </div>
   );
 }

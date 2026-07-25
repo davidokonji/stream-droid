@@ -1,7 +1,8 @@
 # CLI
 
-Run the server or a one-shot command. `src/server.ts` is the entry; it's also
-wired as a `bin` (executable via `#!/usr/bin/env bun`).
+Run the server or a one-shot command. `src/server.ts` is the entry; the published
+`bin` (`bin/stream-droid.mjs`) runs it under **bun or node** — `bunx stream-droid`
+or `npx stream-droid`.
 
 ```bash
 bun run src/server.ts [name] [options]     # dev

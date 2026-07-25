@@ -8,7 +8,7 @@ a required piece is missing.
 
 | # | Requirement | Needed for | How to get it / check |
 |---|---|---|---|
-| 1 | **bun** (pinned in `.bun-version` → **1.3.11**) | running the app (TS is executed directly) | `curl -fsSL https://bun.sh/install \| bash` · `bun upgrade` · verify `bun --version` matches `.bun-version` |
+| 1 | **bun** (pinned in `.bun-version` → **1.3.11**) **or node ≥ 20** | running the app — bun runs the TS natively; node runs it via `tsx` (a dep). Building the client from source uses bun. | bun: `curl -fsSL https://bun.sh/install \| bash`. node: any ≥ 20 works (`npx stream-droid`). |
 | 2 | **adb** (Android platform-tools) on `PATH` | **everything** — capture + input. Hard requirement. | `brew install --cask android-platform-tools`, or add `$ANDROID_HOME/platform-tools` to `PATH`. Verify `adb version` |
 | 3 | A running **device or emulator** | something to stream | `adb devices` should list one as `device` |
 | 4 | **Android SDK `emulator`** + `ANDROID_HOME` | the sidebar's **list / boot AVDs** (optional — streaming an already-running device works without it) | Set `ANDROID_HOME` (e.g. `~/Library/Android/sdk`) or put the `emulator` dir on `PATH`. Verify `emulator -list-avds` |

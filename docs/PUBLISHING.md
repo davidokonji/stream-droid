@@ -46,14 +46,17 @@ npm version patch           # 0.1.0 → 0.1.1   (use minor/major as appropriate)
 npm publish                 # publishConfig.access is "public", so scoped isn't needed
 ```
 
-Consumers then run it **with bun** (the bin shebang is `#!/usr/bin/env bun`):
+Consumers run it under **bun or node**:
 
 ```bash
-bunx stream-droid           # NOT `npx` — the server runs on bun
+bunx stream-droid           # bun — runs the TypeScript natively
+npx stream-droid            # node — runs it via tsx (bun not required)
 ```
 
-> **Why bun, not npx?** The server executes TypeScript directly under bun. `npx`
-> uses node and can't run `src/server.ts`. This is called out in the README.
+> The `bin` (`bin/stream-droid.mjs`) detects the runtime (`typeof Bun`): bun runs
+> the TS natively, node runs it via `tsx` (a dependency). The shipped package
+> includes prebuilt `public/` assets, so no build step runs on the user's machine.
+> Building from source still uses bun.
 
 ### Notes / gotchas
 

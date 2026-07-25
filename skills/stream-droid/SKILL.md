@@ -40,7 +40,8 @@ bun scripts/check.mjs              # exits 0 when ready, 1 with what's missing
 
 The scripts talk to the server on `localhost:3200` (override with
 `--port` / `STREAM_DROID_PORT`). They're plain ESM and run under **bun or
-node ≥ 18** (`node scripts/…`) — only the server itself requires bun.
+node ≥ 18** (`node scripts/…`) — and so does the server itself (`bunx`/`npx
+stream-droid`).
 
 ## The loop
 
