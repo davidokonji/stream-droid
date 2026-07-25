@@ -47,12 +47,13 @@ function listen(server: net.Server): Promise<number> {
   });
 }
 
+const noop = (): void => {
+  /* no-op */
+};
+
 // ChildProcess double for the device-side server spawn — tracks kill().
 function fakeServerProc(): { proc: ChildProcess; killed: () => boolean } {
   let killed = false;
-  const noop = (): void => {
-    /* no-op */
-  };
   const proc = {
     stdout: { on: noop },
     stderr: { on: noop },
@@ -64,14 +65,18 @@ function fakeServerProc(): { proc: ChildProcess; killed: () => boolean } {
   return { proc, killed: () => killed };
 }
 
-const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-async function waitFor(cond: () => boolean, ms = 3000): Promise<boolean> {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (cond()) return true;
-    await wait(10);
-  }
-  return cond();
+// Poll `cond` every 10ms until true or the deadline. Timer-driven (not a
+// while-await loop) so it stays a single, non-blocking chain.
+function waitFor(cond: () => boolean, ms = 3000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const end = Date.now() + ms;
+    const tick = (): void => {
+      if (cond()) return resolve(true);
+      if (Date.now() >= end) return resolve(false);
+      setTimeout(tick, 10);
+    };
+    tick();
+  });
 }
 
 const idArgs = (...r: string[]): string[] => r;
