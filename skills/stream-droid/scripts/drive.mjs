@@ -88,6 +88,8 @@ function help() {
   node scripts/drive.mjs <command> …
 
   devices                     list running devices
+  apps [grep]                 list installed packages + current foreground app
+  launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
   ui [grep]                   list UI elements (• = clickable); optional text filter
   tap:text <text>             tap the element whose text/desc contains <text>
@@ -127,6 +129,29 @@ async function main() {
         const id = n.resourceId ? n.resourceId.split('/').pop() : '';
         console.log(`${n.clickable ? '•' : ' '} ${label || '—'}${id ? `  #${id}` : ''}  @${n.center[0]},${n.center[1]}`);
       }
+      break;
+    }
+    case 'apps': {
+      const serial = await resolveSerial();
+      const r = await fetch(`${BASE}/api/apps?serial=${encodeURIComponent(serial)}`);
+      if (!r.ok) die(`apps failed (${r.status})`);
+      const { foreground, packages } = await r.json();
+      if (foreground) console.log(`foreground: ${foreground}\n`);
+      const grep = rest[0]?.toLowerCase();
+      for (const p of packages) if (!grep || p.toLowerCase().includes(grep)) console.log(p);
+      break;
+    }
+    case 'launch': {
+      const pkg = need(rest[0], 'package');
+      const serial = await resolveSerial();
+      const r = await fetch(`${BASE}/api/launch?serial=${encodeURIComponent(serial)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ package: pkg }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) die(`launch failed: ${j.error ?? r.status}`);
+      console.log(`launched ${pkg}`);
       break;
     }
     case 'tap:text':

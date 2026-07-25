@@ -3,11 +3,13 @@
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { match } from 'ts-pattern';
 import { config, isAuthorized } from './config.ts';
 import { logger } from './log.ts';
 import { adbFor, resolveSerial } from './adb.ts';
 import { avdStatuses, listDevices, startEmulator } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
+import { foregroundApp, launchApp, listPackages } from './apps.ts';
 
 const log = logger('http');
 
@@ -30,68 +32,112 @@ const json = (res: http.ServerResponse, code: number, body: unknown): void => {
   res.end(JSON.stringify(body));
 };
 
+function serveStatic(res: http.ServerResponse, path: string): void {
+  const file = path === '/' ? '/index.html' : path;
+  const contentType = STATIC[file];
+  if (!contentType) {
+    res.writeHead(404).end('not found');
+    return;
+  }
+  try {
+    res.writeHead(200, { 'content-type': contentType });
+    res.end(readFileSync(join(config.PUBLIC, file)));
+  } catch {
+    res.writeHead(404).end('not found');
+  }
+}
+
 export function createHttpServer(): http.Server {
   return http.createServer(async (req, res) => {
     const url = req.url ?? '/';
     const path = url.split('?')[0] ?? '/'; // route on the path; auth reads ?k= off `url`
+    const q = new URL(url, 'http://localhost').searchParams;
     const t0 = Date.now();
     res.on('finish', () => log.debug(`${req.method} ${path} → ${res.statusCode} (${Date.now() - t0}ms)`));
 
-    // Emulator state for the sidebar.
-    if (path === '/api/state') {
-      json(res, 200, {
-        avds: avdStatuses(),
-        devices: listDevices(),
-        capture: config.CAPTURE,
-        target: config.TARGET,
-      });
-      return;
-    }
-    if (path === '/api/start' && req.method === 'POST') {
-      if (!isAuthorized(url)) {
-        json(res, 403, { ok: false, error: 'view-only session' });
-        return;
-      }
-      try {
-        const { avd, headless } = JSON.parse(await readBody(req)) as { avd?: string; headless?: boolean };
-        if (!avd) {
-          json(res, 400, { ok: false, error: 'avd required' });
+    await match({ path, method: req.method })
+      // Emulator state for the sidebar.
+      .with({ path: '/api/state' }, () => {
+        json(res, 200, {
+          avds: avdStatuses(),
+          devices: listDevices(),
+          capture: config.CAPTURE,
+          target: config.TARGET,
+        });
+      })
+      // Boot an AVD (control-gated).
+      .with({ path: '/api/start', method: 'POST' }, async () => {
+        if (!isAuthorized(url)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
-        json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless }) });
-      } catch (e) {
-        json(res, 500, { ok: false, error: (e as Error).message });
-      }
-      return;
-    }
-    // Semantic layer: the current window's accessibility/view hierarchy.
-    if (path === '/api/hierarchy') {
-      const serial = resolveSerial(new URL(url, 'http://localhost').searchParams.get('serial'));
-      if (!serial) {
-        json(res, 400, { ok: false, error: 'no running device' });
-        return;
-      }
-      try {
-        const nodes = await dumpHierarchy(adbFor(serial));
-        json(res, 200, { serial, count: nodes.length, nodes });
-      } catch (e) {
-        json(res, 500, { ok: false, error: (e as Error).message });
-      }
-      return;
-    }
-
-    // Static files.
-    const file = path === '/' ? '/index.html' : path;
-    const contentType = STATIC[path === '/' ? '/' : file];
-    if (!contentType) {
-      res.writeHead(404).end('not found');
-      return;
-    }
-    try {
-      res.writeHead(200, { 'content-type': contentType });
-      res.end(readFileSync(join(config.PUBLIC, file)));
-    } catch {
-      res.writeHead(404).end('not found');
-    }
+        try {
+          const { avd, headless } = JSON.parse(await readBody(req)) as { avd?: string; headless?: boolean };
+          if (!avd) {
+            json(res, 400, { ok: false, error: 'avd required' });
+            return;
+          }
+          json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless }) });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
+      })
+      // App management: installed packages + current foreground app.
+      .with({ path: '/api/apps' }, () => {
+        const serial = resolveSerial(q.get('serial'));
+        if (!serial) {
+          json(res, 400, { ok: false, error: 'no running device' });
+          return;
+        }
+        try {
+          const adbArgs = adbFor(serial);
+          json(res, 200, {
+            serial,
+            foreground: foregroundApp(adbArgs),
+            packages: listPackages(adbArgs, q.get('all') === '1'),
+          });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
+      })
+      // Launch an app by package (control-gated, like /api/start).
+      .with({ path: '/api/launch', method: 'POST' }, async () => {
+        if (!isAuthorized(url)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
+        const serial = resolveSerial(q.get('serial'));
+        if (!serial) {
+          json(res, 400, { ok: false, error: 'no running device' });
+          return;
+        }
+        try {
+          const { package: pkg } = JSON.parse(await readBody(req)) as { package?: string };
+          if (!pkg) {
+            json(res, 400, { ok: false, error: 'package required' });
+            return;
+          }
+          launchApp(adbFor(serial), pkg);
+          json(res, 200, { ok: true, package: pkg });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
+      })
+      // Semantic layer: the current window's accessibility/view hierarchy.
+      .with({ path: '/api/hierarchy' }, async () => {
+        const serial = resolveSerial(q.get('serial'));
+        if (!serial) {
+          json(res, 400, { ok: false, error: 'no running device' });
+          return;
+        }
+        try {
+          const nodes = await dumpHierarchy(adbFor(serial));
+          json(res, 200, { serial, count: nodes.length, nodes });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
+      })
+      // Static assets, else 404.
+      .otherwise(() => serveStatic(res, path));
   });
 }

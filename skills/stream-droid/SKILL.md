@@ -56,6 +56,8 @@ node ≥ 18** (`node scripts/…`) — only the server itself requires bun.
 | Command | Does |
 |---|---|
 | `bun scripts/drive.mjs devices` | list running devices (`GET /api/state`) |
+| `bun scripts/drive.mjs apps [grep]` | list installed packages + current foreground app |
+| `bun scripts/drive.mjs launch com.android.settings` | launch an app by package name |
 | `bun scripts/drive.mjs shot [file]` | save a screenshot PNG (default `screen.png`) |
 | `bun scripts/drive.mjs ui [grep]` | dump UI elements; optional case-insensitive text filter |
 | `bun scripts/drive.mjs tap:text "Network & internet"` | tap the element whose text/desc contains this |
@@ -101,7 +103,7 @@ relevant file in [`references/`](references/) (load only what you need):
 | [references/capture-backends.md](references/capture-backends.md) | `screenrecord` · `scrcpy` · `grpc` |
 | [references/input-control.md](references/input-control.md) | tap / swipe / type / keys, coordinates, input paths |
 | [references/semantic-layer.md](references/semantic-layer.md) | UI hierarchy + tap-by-element |
-| [references/http-api.md](references/http-api.md) | `/api/state`, `/api/start`, `/api/hierarchy` |
+| [references/http-api.md](references/http-api.md) | `/api/state`, `/api/start`, `/api/apps`, `/api/launch`, `/api/hierarchy` |
 | [references/websocket.md](references/websocket.md) | the WS stream + control protocol |
 | [references/remote-tunnel.md](references/remote-tunnel.md) | public link + QR, view-only vs control |
 | [references/browser-ui.md](references/browser-ui.md) | the web UI |
