@@ -3,6 +3,10 @@ name: Publish beta
 # Publish a beta build to npm (dist-tag `beta`, never `latest`) whenever main
 # advances — a merged PR or a direct push — and the change touches files that
 # ship in the package. Consumers opt in with `bunx stream-droid@beta`.
+#
+# Tests aren't shipped in the package, so a test-only change must NOT cut a beta.
+# The `!src/**/*.test.ts` / `__tests__` negations exclude them: a push touching
+# only tests won't match; a push touching real src still does.
 on:
   push:
     branches: [main]
@@ -10,6 +14,9 @@ on:
       - 'package.json'
       - 'bun.lock'
       - 'src/**'
+      - '!src/**/*.test.ts'
+      - '!src/**/*.test.tsx'
+      - '!src/**/__tests__/**'
       - 'public/**'
       - 'skills/**'
 
