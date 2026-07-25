@@ -6,3 +6,6 @@ public/app.css
 *.log
 
 scrcpy-server-*
+
+# generated TypeDoc API reference
+docs/api/

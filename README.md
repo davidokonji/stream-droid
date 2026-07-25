@@ -6,6 +6,7 @@ tap, swipe, type, hardware keys — for humans and AI agents.**
 [![CI](https://github.com/davidokonji/stream-droid/actions/workflows/ci.yml/badge.svg)](https://github.com/davidokonji/stream-droid/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/stream-droid)](https://www.npmjs.com/package/stream-droid)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![docs](https://img.shields.io/badge/docs-online-blue)](https://davidokonji.github.io/stream-droid/)
 
 Point stream-droid at a running emulator or phone and it serves a live view of
 the screen in the browser that you can click, drag, and type into. A sidebar
