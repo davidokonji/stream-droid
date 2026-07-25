@@ -7,6 +7,5 @@ public/app.css
 
 scrcpy-server-*
 
-# generated TypeDoc API reference + its landing (README minus the H1)
 docs/api/
 .typedoc-readme.md
