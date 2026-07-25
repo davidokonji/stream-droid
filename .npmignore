@@ -1,0 +1,11 @@
+# The `files` allowlist in package.json governs what ships. This .npmignore
+# exists so npm does NOT fall back to .gitignore — which excludes the built
+# public/client.js + public/app.css that the published package must ship.
+node_modules/
+*.log
+.DS_Store
+scrcpy-server-*
+# tests don't belong in the published package
+__tests__/
+*.test.ts
+*.test.tsx

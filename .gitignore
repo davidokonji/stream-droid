@@ -1,0 +1,8 @@
+node_modules/
+
+public/client.js
+public/app.css
+
+*.log
+
+scrcpy-server-*
