@@ -57,28 +57,31 @@ tab** — to demo, debug, pair on, or hand to an AI agent.
 
 ## Setup
 
-You need **bun**, **adb** on `PATH`, and a running device or emulator. The SDK
-`emulator` (to list/boot AVDs) is optional, and the scrcpy jar auto-downloads if
-you use that backend. The server runs a **preflight check** on startup and exits
-with a specific fix if something's missing.
+You need **[bun](https://bun.sh) or [node](https://nodejs.org) ≥ 20**, **adb** on
+`PATH`, and a running device or emulator. The SDK `emulator` (to list/boot AVDs)
+is optional, and the scrcpy jar auto-downloads if you use that backend. The server
+runs a **preflight check** on startup and exits with a specific fix if something's
+missing.
 
 → Full prerequisite matrix, physical-device notes, troubleshooting, and the
 security posture: **[docs/setup.md](docs/setup.md)**.
 
 ```bash
 bunx stream-droid                 # run the published package (no clone/build)
+npx stream-droid                  # …or with node — bun not required
 
-# …or from a clone:
+# …or from a clone (building the client uses bun):
 bun install
 bun start                         # builds the client, serves http://localhost:3200
 ```
 
 `bun start` builds the CSS + client bundle, then runs the server and **auto-opens
-your browser** at http://localhost:3200. The `bin` is executable
-(`#!/usr/bin/env bun`) and auto-builds the client on first run, so `bunx
-stream-droid` and `bun run src/server.ts` both work with no separate build step.
+your browser** at http://localhost:3200.
 
-> The CLI runs under **bun** — use `bunx stream-droid` (not `npx`).
+> **Runs under bun _or_ node.** The `bin` (`bin/stream-droid.mjs`) launches the
+> TypeScript server natively under bun, or under node via [tsx](https://tsx.is) —
+> so `bunx stream-droid` and `npx stream-droid` both work and **bun isn't required
+> to run the published tool**. Building the client from a clone still uses bun.
 
 ## CLI commands & examples
 

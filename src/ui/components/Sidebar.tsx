@@ -5,6 +5,7 @@ interface Props {
   avds: AvdStatus[];
   activeSerial: string | null;
   liveSerial: string | null;
+  booting: Set<string>;
   headless: boolean;
   onHeadless: (v: boolean) => void;
   onStream: (serial: string) => void;
@@ -16,6 +17,7 @@ export function Sidebar({
   avds,
   activeSerial,
   liveSerial,
+  booting,
   headless,
   onHeadless,
   onStream,
@@ -48,6 +50,7 @@ export function Sidebar({
             avd={a}
             active={a.serial === activeSerial}
             streaming={a.serial != null && a.serial === liveSerial}
+            booting={booting.has(a.name)}
             onStream={(s) => {
               onStream(s);
               onClose();

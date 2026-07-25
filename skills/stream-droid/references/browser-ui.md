@@ -4,9 +4,11 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
 
 ## Layout
 
-- **Sidebar (Emulators)** — every AVD: 🟢 running · ⚪ stopped.
+- **Sidebar (Emulators)** — every AVD: 🟢 running · 🟡 booting · ⚪ stopped.
   - **Start** on a stopped AVD boots it (tick **headless** first for no host
     window). **Stream** on a running one connects to it.
+  - After **Start**, the row shows a spinner + **booting…** until the emulator
+    comes online (~20-60 s) — it doesn't silently revert to Start.
   - The streaming row shows a pulsing **● LIVE** badge instead of Stream.
   - Polls `/api/state` every 3 s to reflect boot/shutdown.
 - **Main** — the live device, nav buttons (◀ Back · ● Home · ■ Recents), and a
@@ -26,6 +28,9 @@ On the device surface:
   frames are flowing. Only one device streams at a time.
 - **👁 view-only** — shown when connected over a view-only tunnel; input is
   disabled (see [remote-tunnel.md](remote-tunnel.md)).
+- **Preview overlay** — when frames aren't flowing, the preview shows a state
+  instead of a frozen/blank frame: a spinner while **connecting**, and
+  **device disconnected** (amber) when the stream drops, over the last frame.
 
 ## Instant preview (poster)
 

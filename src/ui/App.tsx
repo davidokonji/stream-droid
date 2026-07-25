@@ -29,14 +29,31 @@ const layout = tv({
 });
 
 export function App() {
-  const { videoRef, canvasRef, codec, status, serial, live, controllable, connect, send } = useDeviceStream();
+  const { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, send } =
+    useDeviceStream();
   const [avds, setAvds] = useState<AvdStatus[]>([]);
   const [headless, setHeadless] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [booting, setBooting] = useState<Set<string>>(new Set());
 
   useKeyboard(send, controllable);
 
-  // Poll device/AVD state; auto-stream the pinned target (or first device) once.
+  const startBoot = async (avd: string): Promise<void> => {
+    setBooting((b) => new Set(b).add(avd));
+    try {
+      await startAvd(avd, headless);
+    } catch (e) {
+      setBooting((b) => {
+        const n = new Set(b);
+        n.delete(avd);
+        return n;
+      });
+      throw e;
+    }
+  };
+
+  // Poll device/AVD state; auto-stream the pinned target (or first device) once,
+  // and clear the "booting" flag for any AVD that has come online.
   useEffect(() => {
     let alive = true;
     const tick = async (): Promise<void> => {
@@ -44,6 +61,12 @@ export function App() {
         const st = await fetchState();
         if (!alive) return;
         setAvds(st.avds);
+        setBooting((b) => {
+          if (b.size === 0) return b;
+          const n = new Set(b);
+          for (const a of st.avds) if (a.running) n.delete(a.name);
+          return n.size === b.size ? b : n;
+        });
         const t = st.target?.toLowerCase();
         const preferred =
           (t
@@ -88,10 +111,11 @@ export function App() {
             avds={avds}
             activeSerial={serial}
             liveSerial={live ? serial : null}
+            booting={booting}
             headless={headless}
             onHeadless={setHeadless}
             onStream={connect}
-            onStart={(avd) => startAvd(avd, headless)}
+            onStart={startBoot}
             onClose={() => setMenuOpen(false)}
           />
         </div>
@@ -104,6 +128,8 @@ export function App() {
           canvasRef={canvasRef}
           codec={codec}
           live={live}
+          state={state}
+          status={status}
           controllable={controllable}
           onControl={send}
         />

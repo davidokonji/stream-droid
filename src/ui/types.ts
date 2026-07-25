@@ -16,6 +16,9 @@ export interface State {
 
 export type Codec = 'h264' | 'png';
 
+// Connection state of the streamed device, for the preview overlay.
+export type ConnState = 'idle' | 'connecting' | 'live' | 'disconnected' | 'error';
+
 export type ServerMsg =
   | { type: 'meta'; name?: string; w: number; h: number; codec?: Codec; control?: boolean }
   | { type: 'poster' } // next binary frame is a one-shot PNG preview (canvas)

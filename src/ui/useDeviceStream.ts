@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import JMuxer from 'jmuxer';
-import type { Codec, Control, ServerMsg } from './types';
+import type { Codec, ConnState, Control, ServerMsg } from './types';
 import { controlToken } from './token';
 
 export interface DeviceStream {
@@ -8,6 +8,7 @@ export interface DeviceStream {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   codec: Codec;
   status: string;
+  state: ConnState; // connection lifecycle, for the preview overlay
   serial: string | null;
   live: boolean; // frames are flowing
   controllable: boolean; // this session may drive the device (false = view-only)
@@ -28,6 +29,7 @@ export function useDeviceStream(): DeviceStream {
 
   const [codec, setCodec] = useState<Codec>('h264');
   const [status, setStatus] = useState('select an emulator →');
+  const [state, setState] = useState<ConnState>('idle');
   const [serial, setSerial] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [controllable, setControllable] = useState(true);
@@ -65,6 +67,7 @@ export function useDeviceStream(): DeviceStream {
     if (!liveRef.current) {
       liveRef.current = true;
       setLive(true);
+      setState('live');
     }
   }, []);
 
@@ -99,6 +102,7 @@ export function useDeviceStream(): DeviceStream {
       setSerial(s);
       setLive(false);
       setControllable(true);
+      setState('connecting');
       setStatus(`connecting to ${s}…`);
 
       const k = controlToken();
@@ -140,14 +144,16 @@ export function useDeviceStream(): DeviceStream {
         } else if (msg.type === 'poster') {
           posterRef.current = true;
         } else if (msg.type === 'error') {
-          setStatus(`⚠ ${msg.message}`);
+          setState('error');
+          setStatus(msg.message);
         }
       });
       ws.addEventListener('close', () => {
         if (serialRef.current === s) {
           liveRef.current = false;
           setLive(false);
-          setStatus('disconnected');
+          setState((prev) => (prev === 'error' ? prev : 'disconnected'));
+          setStatus('device disconnected');
         }
       });
     },
@@ -168,5 +174,5 @@ export function useDeviceStream(): DeviceStream {
     [],
   );
 
-  return { videoRef, canvasRef, codec, status, serial, live, controllable, connect, send };
+  return { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, send };
 }

@@ -1,9 +1,17 @@
 import { useRef, type RefObject } from 'react';
 import { tv } from 'tailwind-variants';
-import type { Codec, Control } from '../types';
+import type { Codec, ConnState, Control } from '../types';
 import { LiveDot } from './LiveDot';
 
 const LONG_PRESS_MS = 500; // a stationary hold this long becomes a long-press
+
+// What the preview overlay says when frames aren't flowing.
+const OVERLAY: Record<Exclude<ConnState, 'live'>, { title: string; sub: string; tone: string }> = {
+  idle: { title: 'No device streaming', sub: 'Pick an emulator in the sidebar', tone: 'text-neutral-400' },
+  connecting: { title: 'Connecting…', sub: '', tone: 'text-neutral-300' },
+  disconnected: { title: 'Device disconnected', sub: 'Reconnect from the sidebar', tone: 'text-amber-300' },
+  error: { title: 'Stream error', sub: '', tone: 'text-red-300' },
+};
 
 const screen = tv({
   slots: {
@@ -12,6 +20,12 @@ const screen = tv({
       'block max-h-[78vh] max-w-full cursor-crosshair rounded-xl bg-black object-contain shadow-[0_8px_40px_rgba(0,0,0,0.5)]',
     badge:
       'pointer-events-none absolute top-2 flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-[11px]',
+    overlay:
+      'pointer-events-none absolute inset-0 z-10 flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-xl bg-black/65 px-4 text-center backdrop-blur-[1px]',
+    spinner: 'h-6 w-6 animate-spin rounded-full border-2 border-neutral-600 border-t-neutral-200',
+    oDot: 'h-2.5 w-2.5 rounded-full bg-current',
+    oTitle: 'text-[13px] font-medium',
+    oSub: 'text-[11px] text-neutral-400',
   },
   variants: {
     hidden: { true: { surface: 'hidden' } },
@@ -24,16 +38,18 @@ interface Props {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   codec: Codec;
   live: boolean;
+  state: ConnState;
+  status: string;
   controllable: boolean;
   onControl: (msg: Control) => void;
 }
 
 const clamp = (v: number): number => Math.min(1, Math.max(0, v));
 
-export function Screen({ videoRef, canvasRef, codec, live, controllable, onControl }: Props) {
+export function Screen({ videoRef, canvasRef, codec, live, state, status, controllable, onControl }: Props) {
   const down = useRef<{ x: number; y: number; t: number } | null>(null);
   const png = codec === 'png';
-  const { root, surface, badge } = screen();
+  const { root, surface, badge, overlay, spinner, oDot, oTitle, oSub } = screen();
 
   const rect = (): DOMRect => (png ? canvasRef.current! : videoRef.current!).getBoundingClientRect();
   const norm = (ev: { clientX: number; clientY: number }): { x: number; y: number } => {
@@ -76,6 +92,17 @@ export function Screen({ videoRef, canvasRef, codec, live, controllable, onContr
         </div>
       )}
       {!controllable && <div className={badge({ class: 'right-2 text-amber-300' })}>👁 view-only</div>}
+      {state !== 'live' && (
+        <div className={overlay()}>
+          {state === 'connecting' ? (
+            <span className={spinner()} />
+          ) : (
+            <span className={oDot({ class: OVERLAY[state].tone })} />
+          )}
+          <span className={oTitle({ class: OVERLAY[state].tone })}>{OVERLAY[state].title}</span>
+          <span className={oSub()}>{state === 'error' ? status : OVERLAY[state].sub}</span>
+        </div>
+      )}
       <video
         ref={videoRef}
         autoPlay
