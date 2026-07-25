@@ -137,6 +137,7 @@ the loop — `shot` (screenshot) → `ui` (elements) → `tap:text` / `tap:id` /
 ```bash
 bun run src/server.ts -d                               # server, headless
 bun skills/stream-droid/scripts/check.mjs              # verify prerequisites
+bun skills/stream-droid/scripts/drive.mjs launch com.android.settings  # open an app
 bun skills/stream-droid/scripts/drive.mjs shot         # screen.png
 bun skills/stream-droid/scripts/drive.mjs ui internet  # elements matching "internet"
 bun skills/stream-droid/scripts/drive.mjs tap:text "Network & internet"

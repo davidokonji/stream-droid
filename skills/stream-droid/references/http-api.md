@@ -40,6 +40,36 @@ curl -sX POST localhost:3200/api/start \
 
 Add `?k=<token>` when the server is in tunnel mode.
 
+## `GET /api/apps?serial=<serial>&all=<0|1>`
+
+Installed packages and the current foreground app. `serial` optional (resolved
+device); `all=1` includes system packages (default: third-party only).
+
+```bash
+curl -s "localhost:3200/api/apps?serial=emulator-5554" | jq '{foreground, n: (.packages|length)}'
+```
+
+Returns `{ serial, foreground, packages:[…] }` (`foreground` may be `null` if it
+can't be determined), or 400 `{ ok:false, error:"no running device" }`.
+
+## `POST /api/launch?serial=<serial>`
+
+Launch an app by package (its launcher activity is resolved via `monkey`).
+Control-gated like `/api/start`. Body `{ package }`.
+
+```bash
+curl -sX POST "localhost:3200/api/launch?serial=emulator-5554" \
+  -H 'content-type: application/json' -d '{"package":"com.android.settings"}'
+# → { "ok": true, "package": "com.android.settings" }
+```
+
+| Status | When |
+|---|---|
+| 200 | `{ ok:true, package }` |
+| 400 | `{ ok:false, error:"package required" }` / `"no running device"` |
+| 403 | `{ ok:false, error:"view-only session" }` (tunnel, no token) |
+| 500 | `{ ok:false, error:"<msg>" }` |
+
 ## `GET /api/hierarchy?serial=<serial>`
 
 The current window's UI tree — see [semantic-layer.md](semantic-layer.md).

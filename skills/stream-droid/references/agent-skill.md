@@ -23,6 +23,8 @@ Run from the skill dir (`bun scripts/drive.mjs …`) or the repo root
 | Command | Does |
 |---|---|
 | `devices` | list running devices |
+| `apps [grep]` | list installed packages + current foreground app |
+| `launch <package>` | launch an app by package name |
 | `shot [file]` | save a screenshot PNG (default `screen.png`) |
 | `ui [grep]` | list UI elements (`•` = clickable); optional text filter |
 | `tap:text "<text>"` | tap the element whose text/desc contains `<text>` |
