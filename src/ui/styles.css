@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+/* Scan the React sources for utility classes. */
+@source "./";
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+  }
+}

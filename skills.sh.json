@@ -1,0 +1,11 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Android",
+      "description": "See and drive an Android emulator or device from an agent — screenshot, read the UI hierarchy, and tap/type/swipe.",
+      "skills": ["stream-droid"]
+    }
+  ]
+}
