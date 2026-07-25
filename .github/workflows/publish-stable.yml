@@ -33,7 +33,7 @@ jobs:
     if: ${{ github.repository == 'davidokonji/stream-droid' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up bun
         uses: oven-sh/setup-bun@v2
@@ -41,7 +41,7 @@ jobs:
           bun-version-file: .bun-version
 
       - name: Set up node (npm registry auth)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
