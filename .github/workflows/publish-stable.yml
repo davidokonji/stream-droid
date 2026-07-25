@@ -2,7 +2,8 @@ name: Publish stable
 
 # Manually cut a stable release from the Actions tab: pick a semver bump, and the
 # workflow bumps package.json, tags it, pushes, and publishes to npm under the
-# default `latest` dist-tag.
+# default `latest` dist-tag. Must be dispatched from `main` (guarded below) — a
+# release cut from any other branch is rejected before anything is bumped.
 on:
   workflow_dispatch:
     inputs:
@@ -33,6 +34,13 @@ jobs:
     if: ${{ github.repository == 'davidokonji/stream-droid' }}
     runs-on: ubuntu-latest
     steps:
+      # Reject a dispatch from any branch other than main, before any setup runs.
+      - name: Guard — main only
+        if: github.ref_name != 'main'
+        run: |
+          echo "::error::Publish stable must be dispatched from 'main' (got '${{ github.ref_name }}'). No release cut."
+          exit 1
+
       - uses: actions/checkout@v5
 
       - name: Set up bun
