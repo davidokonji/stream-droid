@@ -1,0 +1,87 @@
+name: Publish beta
+
+# Publish a beta build to npm (dist-tag `beta`, never `latest`) whenever main
+# advances — a merged PR or a direct push — and the change touches files that
+# ship in the package. Consumers opt in with `bunx stream-droid@beta`.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'bun.lock'
+      - 'src/**'
+      - 'public/**'
+      - 'skills/**'
+
+permissions:
+  contents: write
+  id-token: write
+
+# Never let two publishes race; queue them instead of cancelling.
+concurrency:
+  group: publish-beta
+  cancel-in-progress: false
+
+jobs:
+  publish-beta:
+    name: Publish beta to npm
+    # Guards: only ever publish from this repo (not forks), and skip when the
+    # commit opts out with [skip beta] — e.g. the version-bump commit of a stable
+    # release, which is published by publish-stable.yml instead.
+    if: ${{ github.repository == 'davidokonji/stream-droid' && !contains(github.event.head_commit.message, '[skip beta]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Set up node (npm registry auth)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint, typecheck & format check
+        run: bun run check
+
+      - name: Test
+        run: bun test
+
+      - name: Derive beta version
+        id: version
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          BETA="${BASE}-beta.${{ github.run_number }}"
+          npm version "$BETA" --no-git-tag-version
+          echo "beta=$BETA" >> "$GITHUB_OUTPUT"
+          echo "Publishing stream-droid@$BETA (dist-tag: beta)"
+
+      # `npm publish` runs the package's prepublishOnly (bun run build) to
+      # (re)build public/ before packing.
+      - name: Publish to npm (beta tag)
+        run: npm publish --tag beta --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Tag the exact built commit and cut a GitHub prerelease. The tag is created
+      # via GITHUB_TOKEN, so it does NOT trigger publish-stable (and its name
+      # wouldn't match that workflow's version guard anyway).
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.version.outputs.beta }}"
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "stream-droid $TAG" \
+            --prerelease \
+            --generate-notes
+
+      - name: Summary
+        run: echo "Published \`stream-droid@${{ steps.version.outputs.beta }}\` (prerelease) — install with \`bunx stream-droid@beta\`" >> "$GITHUB_STEP_SUMMARY"
