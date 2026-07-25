@@ -1,7 +1,20 @@
 import { useEffect } from 'react';
 import type { Control } from './types';
 
-const SPECIAL = new Set(['Enter', 'Backspace', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+// Browser key names that map 1:1 to a device key we support (sent as-is).
+const SPECIAL = new Set([
+  'Enter',
+  'Backspace',
+  'Tab',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Escape',
+  'Delete',
+  'PageUp',
+  'PageDown',
+]);
 
 export function useKeyboard(send: (msg: Control) => void, enabled = true): void {
   useEffect(() => {

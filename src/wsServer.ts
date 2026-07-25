@@ -14,6 +14,7 @@ import type { CaptureHandle, CaptureMeta } from './capture/types.ts';
 
 const log = logger('ws');
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
 
 // A one-line summary of a control message for debug logs.
 function summarize(msg: Incoming): string {
@@ -22,6 +23,11 @@ function summarize(msg: Incoming): string {
     .with(
       { type: 'swipe' },
       (m) => `swipe ${m.x1.toFixed(2)},${m.y1.toFixed(2)} → ${m.x2.toFixed(2)},${m.y2.toFixed(2)}`,
+    )
+    .with({ type: 'longPress' }, (m) => `longPress ${m.x.toFixed(2)},${m.y.toFixed(2)}`)
+    .with(
+      { type: 'scroll' },
+      (m) => `scroll ${m.x.toFixed(2)},${m.y.toFixed(2)} Δ${m.dx.toFixed(2)},${m.dy.toFixed(2)}`,
     )
     .with({ type: 'text' }, (m) => `text ${JSON.stringify(m.value)}`)
     .with({ type: 'key' }, (m) => `key ${m.key}`)
@@ -102,7 +108,9 @@ export function attachWebSocket(server: http.Server): void {
       log.debug(`${serial} ◂ ${summarize(msg)}`);
 
       // Semantic tap resolves an element's center from the hierarchy, then reuses
-      // the normal tap path; everything else is a raw control message.
+      // the normal tap path. longPress/scroll are synthesized from a swipe (a
+      // hold-in-place, and a short drag opposite the scroll delta). Everything
+      // else is a raw control message.
       await match(msg)
         .with({ type: 'tapElement' }, async (m) => {
           try {
@@ -116,6 +124,20 @@ export function attachWebSocket(server: http.Server): void {
           } catch (e) {
             log.error(`semantic tap failed: ${(e as Error).message}`);
           }
+        })
+        .with({ type: 'longPress' }, (m) => {
+          control({ type: 'swipe', x1: m.x, y1: m.y, x2: m.x, y2: m.y, ms: m.ms ?? 500 });
+        })
+        .with({ type: 'scroll' }, (m) => {
+          // Content moves by (dx,dy); the finger drags the opposite way.
+          control({
+            type: 'swipe',
+            x1: m.x,
+            y1: m.y,
+            x2: clamp01(m.x - m.dx),
+            y2: clamp01(m.y - m.dy),
+            ms: 120,
+          });
         })
         .otherwise((m) => control(m));
     });

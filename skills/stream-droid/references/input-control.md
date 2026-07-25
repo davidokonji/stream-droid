@@ -9,13 +9,21 @@ pixels, so input is resolution-independent.
 | Message | Meaning |
 |---|---|
 | `{ "type": "tap", "x": 0.5, "y": 0.5 }` | tap at a normalized point |
+| `{ "type": "longPress", "x": .5, "y": .5, "ms": 500 }` | press and hold (`ms` optional, default 500) |
 | `{ "type": "swipe", "x1": .5, "y1": .8, "x2": .5, "y2": .2, "ms": 200 }` | swipe (`ms` optional, default 200) |
+| `{ "type": "scroll", "x": .5, "y": .5, "dy": .5, "dx": 0 }` | scroll at a point by `(dx,dy)` — content moves that way |
 | `{ "type": "text", "value": "hello" }` | type a string into the focused field |
 | `{ "type": "key", "key": "Home" }` | press a named key (below) |
 | `{ "type": "tapElement", "id": "…" \| "text": "…" }` | tap an element — see [semantic-layer.md](semantic-layer.md) |
 
-Key names: `Enter`, `Backspace`, `Tab`, `ArrowUp`, `ArrowDown`, `ArrowLeft`,
-`ArrowRight`, `Home`, `Back`, `AppSwitch`.
+`longPress` and `scroll` are synthesized from a swipe server-side (a hold-in-place,
+and a short drag opposite the scroll delta).
+
+Key names: `Enter`, `Backspace`, `Tab`, `Home`, `Back`, `AppSwitch`, `Escape`,
+`Delete`, `Arrow{Up,Down,Left,Right}`, `Page{Up,Down}`, `DpadCenter`, `Menu`,
+`Search`, `Notifications`, `Power`, `Camera`, `Volume{Up,Down,Mute}`,
+`Media{PlayPause,Next,Previous}`. On the gRPC backend, keys without a native
+mapping fall back to `adb input keyevent`.
 
 Example (bun):
 

@@ -61,9 +61,15 @@ node ≥ 18** (`node scripts/…`) — only the server itself requires bun.
 | `bun scripts/drive.mjs tap:text "Network & internet"` | tap the element whose text/desc contains this |
 | `bun scripts/drive.mjs tap:id search` | tap by resource-id (full or the tail after `/`) |
 | `bun scripts/drive.mjs tap 0.5 0.5` | tap normalized `[0..1]` coordinates |
+| `bun scripts/drive.mjs longpress 0.5 0.5 [ms]` | press and hold (default 500ms) |
 | `bun scripts/drive.mjs swipe 0.5 0.8 0.5 0.2` | swipe (normalized) — e.g. scroll up |
+| `bun scripts/drive.mjs scroll 0.5 0.5 0.5` | scroll at a point by `dy` (and optional `dx`) |
 | `bun scripts/drive.mjs text "hello world"` | type text into the focused field |
-| `bun scripts/drive.mjs key Home` | Enter · Backspace · Tab · Home · Back · AppSwitch · Arrow{Up,Down,Left,Right} |
+| `bun scripts/drive.mjs key VolumeUp` | keys — nav, media, volume, power (see below) |
+
+Key names: `Enter` `Backspace` `Tab` `Home` `Back` `AppSwitch` `Escape` `Delete`
+`Arrow{Up,Down,Left,Right}` `Page{Up,Down}` `DpadCenter` `Menu` `Search`
+`Notifications` `Power` `Camera` `Volume{Up,Down,Mute}` `Media{PlayPause,Next,Previous}`.
 
 Target a specific device with `--serial <serial|avd>` (or `$STREAM_DROID_SERIAL`);
 otherwise the first running device is used. Coordinates are normalized `[0..1]`,

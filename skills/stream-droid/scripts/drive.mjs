@@ -93,9 +93,14 @@ function help() {
   tap:text <text>             tap the element whose text/desc contains <text>
   tap:id <resource-id>        tap by resource-id (full, or the tail after '/')
   tap <x> <y>                 tap normalized [0..1] coordinates
+  longpress <x> <y> [ms]      press and hold (default 500ms)
   swipe <x1> <y1> <x2> <y2>   swipe (normalized) — e.g. 0.5 0.8 0.5 0.2 scrolls up
+  scroll <x> <y> <dy> [dx]    scroll at (x,y) by dy (and dx); dy 0.5 ≈ half screen down
   text <string>               type text into the focused field
-  key <Name>                  Enter|Backspace|Tab|Home|Back|AppSwitch|Arrow{Up,Down,Left,Right}`);
+  key <Name>                  Enter Backspace Tab Home Back AppSwitch Escape Delete
+                              Arrow{Up,Down,Left,Right} Page{Up,Down} DpadCenter Menu
+                              Search Notifications Power Camera Volume{Up,Down,Mute}
+                              Media{PlayPause,Next,Previous}`);
 }
 
 async function main() {
@@ -138,8 +143,14 @@ async function main() {
     case 'tap':
       await control({ type: 'tap', x: num(rest[0]), y: num(rest[1]) });
       break;
+    case 'longpress':
+      await control({ type: 'longPress', x: num(rest[0]), y: num(rest[1]), ms: rest[2] ? num(rest[2]) : 500 });
+      break;
     case 'swipe':
       await control({ type: 'swipe', x1: num(rest[0]), y1: num(rest[1]), x2: num(rest[2]), y2: num(rest[3]) });
+      break;
+    case 'scroll':
+      await control({ type: 'scroll', x: num(rest[0]), y: num(rest[1]), dy: num(rest[2]), dx: rest[3] ? num(rest[3]) : 0 });
       break;
     case 'text':
       await control({ type: 'text', value: need(rest.join(' '), 'text') });

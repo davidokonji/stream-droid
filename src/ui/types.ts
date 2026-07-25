@@ -24,5 +24,7 @@ export type ServerMsg =
 export type Control =
   | { type: 'tap'; x: number; y: number }
   | { type: 'swipe'; x1: number; y1: number; x2: number; y2: number; ms?: number }
+  | { type: 'longPress'; x: number; y: number; ms?: number }
+  | { type: 'scroll'; x: number; y: number; dx: number; dy: number }
   | { type: 'text'; value: string }
   | { type: 'key'; key: string };
