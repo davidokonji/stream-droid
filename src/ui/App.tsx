@@ -7,7 +7,10 @@ import { Sidebar } from './components/Sidebar';
 import { Screen } from './components/Screen';
 import { NavBar } from './components/NavBar';
 import { LiveDot } from './components/LiveDot';
-import type { AvdStatus } from './types';
+import type { AvdStatus, ConnState } from './types';
+
+// Browser-tab prefix per stream state, so the title says what's being streamed.
+const TITLE_MARK: Partial<Record<ConnState, string>> = { live: '● ', disconnected: '⚠ ' };
 
 const layout = tv({
   slots: {
@@ -37,6 +40,12 @@ export function App() {
   const [booting, setBooting] = useState<Set<string>>(new Set());
 
   useKeyboard(send, controllable);
+
+  // Reflect what's streaming in the browser-tab title (● live · ⚠ disconnected).
+  useEffect(() => {
+    const name = avds.find((a) => a.serial === serial)?.name ?? serial;
+    document.title = name ? `${TITLE_MARK[state] ?? ''}${name} · streaming` : 'No device streaming';
+  }, [serial, state, avds]);
 
   const startBoot = async (avd: string): Promise<void> => {
     setBooting((b) => new Set(b).add(avd));

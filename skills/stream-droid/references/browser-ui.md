@@ -31,6 +31,9 @@ On the device surface:
 - **Preview overlay** — when frames aren't flowing, the preview shows a state
   instead of a frozen/blank frame: a spinner while **connecting**, and
   **device disconnected** (amber) when the stream drops, over the last frame.
+- **Browser-tab title** — reflects what's streaming: `● Pixel_9 · stream-droid`
+  when live (the AVD name if known, else the serial), `⚠ …` when disconnected,
+  and just `stream-droid` when idle.
 
 ## Instant preview (poster)
 
