@@ -32,7 +32,7 @@ On the device surface:
 - **● LIVE** — shown in the sidebar row, over the video, and in the status when
   frames are flowing. Only one device streams at a time.
 - **👁 view-only** — shown when connected over a view-only tunnel; input is
-  disabled (see [remote-tunnel.md](remote-tunnel.md)).
+  disabled (see the [`share` skill](../../share/references/remote-tunnel.md)).
 - **Preview overlay** — when frames aren't flowing, the preview shows a state
   instead of a frozen/blank frame: a spinner while **connecting**, and
   **device disconnected** (amber) when the stream drops, over the last frame.

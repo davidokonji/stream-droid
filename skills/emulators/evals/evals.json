@@ -1,0 +1,37 @@
+{
+  "skill_name": "emulators",
+  "evals": [
+    {
+      "id": 1,
+      "name": "boot-specific-avd-headless",
+      "prompt": "Start my Pixel_9 emulator without a window so I can drive it for a test.",
+      "expected_behavior": [
+        "Boots the named AVD headless via the CLI — `stream-droid Pixel_9 -d` (or `bun run src/server.ts Pixel_9 -d` from a clone), which boots the emulator windowless and streams once online.",
+        "Understands the emulator can take ~20–60 s to come online.",
+        "Does NOT tap or drive before the device is running — that's the `/stream-droid:drive` skill, once it's up."
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "list-running-and-available",
+      "prompt": "What emulators do I have and which are running?",
+      "expected_behavior": [
+        "Runs `stream-droid -a` (or `bun run src/server.ts -a`) to list running streams plus stopped AVDs, then exits.",
+        "Does NOT start a server or boot anything just to list."
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "kill-emulator-only",
+      "prompt": "Shut down the Pixel_9 emulator, and also power off my physical phone the same way.",
+      "expected_behavior": [
+        "Runs `stream-droid --kill Pixel_9` to shut the emulator down.",
+        "Explains that `--kill` (adb emu kill) works for emulators only — a physical device can't be powered off this way.",
+        "Does not claim to have killed the physical device."
+      ],
+      "files": []
+    }
+  ]
+}
