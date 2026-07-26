@@ -13,6 +13,7 @@ export interface DeviceStream {
   live: boolean; // frames are flowing
   controllable: boolean; // this session may drive the device (false = view-only)
   connect: (serial: string) => void;
+  disconnect: () => void; // tear down the current stream (e.g. its device went away)
   send: (msg: Control) => void;
 }
 
@@ -160,6 +161,12 @@ export function useDeviceStream(): DeviceStream {
     [clearPoster, drawPng, markLive, setPoster],
   );
 
+  // Close the current socket; the ws 'close' handler flips state to 'disconnected'
+  // and clears live. Used when a poll notices the streamed device has gone away.
+  const disconnect = useCallback((): void => {
+    wsRef.current?.close();
+  }, []);
+
   const send = useCallback((msg: Control): void => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
@@ -174,5 +181,5 @@ export function useDeviceStream(): DeviceStream {
     [],
   );
 
-  return { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, send };
+  return { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, disconnect, send };
 }

@@ -32,7 +32,7 @@ const layout = tv({
 });
 
 export function App() {
-  const { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, send } =
+  const { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, disconnect, send } =
     useDeviceStream();
   const [avds, setAvds] = useState<AvdStatus[]>([]);
   const [headless, setHeadless] = useState(false);
@@ -76,6 +76,9 @@ export function App() {
           for (const a of st.avds) if (a.running) n.delete(a.name);
           return n.size === b.size ? b : n;
         });
+        // The streamed device vanished (emulator closed) — tear the stream down so
+        // the UI shows "disconnected" instead of a frozen frame, without a reload.
+        if (serial && !st.devices.some((d) => d.serial === serial)) disconnect();
         const t = st.target?.toLowerCase();
         const preferred =
           (t
@@ -92,7 +95,7 @@ export function App() {
       alive = false;
       clearInterval(id);
     };
-  }, [connect, serial]);
+  }, [connect, disconnect, serial]);
 
   const s = layout({ open: menuOpen, sidebar: controllable });
   return (
