@@ -93,6 +93,9 @@ export function useDeviceStream(): DeviceStream {
 
   const connect = useCallback(
     (s: string): void => {
+      // Re-selecting the device that's already live is a no-op — don't tear down
+      // and restart the capture pipe for nothing.
+      if (s === serialRef.current && liveRef.current) return;
       wsRef.current?.close();
       muxRef.current?.destroy();
       muxRef.current = null;

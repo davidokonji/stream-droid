@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { tv } from 'tailwind-variants';
-import { fetchState, startAvd } from './api';
+import { fetchState, startAvd, stopEmulator } from './api';
 import { useDeviceStream } from './useDeviceStream';
 import { useKeyboard } from './useKeyboard';
 import { Sidebar } from './components/Sidebar';
@@ -38,6 +38,9 @@ export function App() {
   const [headless, setHeadless] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
+  // AVDs this session booted headless (no host window). Closing one of these
+  // shuts the emulator down entirely, since there's no window to fall back to.
+  const [headlessBooted, setHeadlessBooted] = useState<Set<string>>(new Set());
 
   useKeyboard(send, controllable);
 
@@ -49,6 +52,13 @@ export function App() {
 
   const startBoot = async (avd: string): Promise<void> => {
     setBooting((b) => new Set(b).add(avd));
+    // Remember whether we booted this one headless, so "close" can shut it down.
+    setHeadlessBooted((set) => {
+      const n = new Set(set);
+      if (headless) n.add(avd);
+      else n.delete(avd);
+      return n;
+    });
     try {
       await startAvd(avd, headless);
     } catch (e) {
@@ -58,6 +68,27 @@ export function App() {
         return n;
       });
       throw e;
+    }
+  };
+
+  // Close the device we're streaming. A headless emulator we started has no
+  // window, so shut it down entirely; a windowed one just stops streaming (it
+  // keeps running, and can be re-streamed from the sidebar).
+  const closeActive = async (): Promise<void> => {
+    if (!serial) return;
+    const avd = avds.find((a) => a.serial === serial)?.name;
+    disconnect();
+    if (avd && headlessBooted.has(avd)) {
+      try {
+        await stopEmulator(serial);
+      } catch {
+        /* device may already be gone */
+      }
+      setHeadlessBooted((set) => {
+        const n = new Set(set);
+        n.delete(avd);
+        return n;
+      });
     }
   };
 
@@ -125,10 +156,12 @@ export function App() {
             liveSerial={live ? serial : null}
             booting={booting}
             busy={booting.size > 0}
+            headlessBooted={headlessBooted}
             headless={headless}
             onHeadless={setHeadless}
             onStream={connect}
             onStart={startBoot}
+            onCloseDevice={closeActive}
             onClose={() => setMenuOpen(false)}
           />
         </div>
