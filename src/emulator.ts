@@ -126,3 +126,9 @@ export function startEmulator(avd: string, opts: { headless?: boolean } = {}): {
   child.unref();
   return { avd, pid: child.pid };
 }
+
+// Shut a running emulator down via `adb emu kill`. Emulators only — physical
+// devices don't respond to this (the caller surfaces the error).
+export function killEmulator(serial: string): void {
+  execFileSync('adb', ['-s', serial, 'emu', 'kill']);
+}

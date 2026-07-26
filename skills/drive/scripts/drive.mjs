@@ -11,6 +11,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 
 const argv = process.argv.slice(2);
 const opt = (flag, env) => {
@@ -24,6 +25,11 @@ const opt = (flag, env) => {
 };
 const PORT = opt('--port', 'STREAM_DROID_PORT') ?? '3200';
 const SERIAL_ARG = opt('--serial', 'STREAM_DROID_SERIAL');
+// Where captured files (screenshots, recordings) land. Default: the active
+// folder — wherever the command was run from — so output stays with the user's
+// work. Override with --out-dir or $STREAM_DROID_OUT_DIR, or pass an explicit path.
+const OUT_DIR = opt('--out-dir', 'STREAM_DROID_OUT_DIR') ?? process.cwd();
+const outPath = (name) => (isAbsolute(name) ? name : resolve(OUT_DIR, name));
 const BASE = `http://localhost:${PORT}`;
 const [cmd, ...rest] = argv;
 
@@ -91,6 +97,7 @@ function help() {
   apps [grep]                 list installed packages + current foreground app
   launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
+  record [secs] [file]        record the screen to MP4 (default 10s, screen.mp4)
   ui [grep]                   list UI elements (• = clickable); optional text filter
   tap:text <text>             tap the element whose text/desc contains <text>
   tap:id <resource-id>        tap by resource-id (full, or the tail after '/')
@@ -102,7 +109,10 @@ function help() {
   key <Name>                  Enter Backspace Tab Home Back AppSwitch Escape Delete
                               Arrow{Up,Down,Left,Right} Page{Up,Down} DpadCenter Menu
                               Search Notifications Power Camera Volume{Up,Down,Mute}
-                              Media{PlayPause,Next,Previous}`);
+                              Media{PlayPause,Next,Previous}
+
+  Captured files (shot, record) save to the current folder by default; pass a
+  path, or set --out-dir / $STREAM_DROID_OUT_DIR to save elsewhere.`);
 }
 
 async function main() {
@@ -114,11 +124,27 @@ async function main() {
     }
     case 'shot': {
       const serial = await resolveSerial();
-      const file = rest[0] ?? 'screen.png';
+      const file = outPath(rest[0] ?? 'screen.png');
       const r = spawnSync('adb', ['-s', serial, 'exec-out', 'screencap', '-p'], { maxBuffer: 64 * 1024 * 1024 });
       if (r.status !== 0 || !r.stdout?.length) die('screencap failed (is adb on PATH?)');
       writeFileSync(file, r.stdout);
       console.log(`saved ${file} (${(r.stdout.length / 1024) | 0} KB) from ${serial}`);
+      break;
+    }
+    case 'record': {
+      const serial = await resolveSerial();
+      const secs = rest[0] ? num(rest[0]) : 10;
+      const file = outPath(rest[1] ?? 'screen.mp4');
+      const onDevice = '/sdcard/stream-droid-rec.mp4';
+      console.log(`recording ${secs}s from ${serial}…`);
+      const rec = spawnSync('adb', ['-s', serial, 'shell', 'screenrecord', '--time-limit', String(secs), onDevice], {
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      if (rec.status !== 0) die('screenrecord failed (physical devices/older emulators may not support it)');
+      const pull = spawnSync('adb', ['-s', serial, 'pull', onDevice, file], { maxBuffer: 8 * 1024 * 1024 });
+      spawnSync('adb', ['-s', serial, 'shell', 'rm', '-f', onDevice]);
+      if (pull.status !== 0) die('could not pull the recording off the device');
+      console.log(`saved ${file} from ${serial}`);
       break;
     }
     case 'ui': {

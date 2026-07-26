@@ -32,12 +32,12 @@ If it's a stopped AVD, it's booted and streamed once online.
 | `--port <n>` | `PORT` | `3200` | HTTP + WS port |
 | `--serial <s>` | `ANDROID_SERIAL` | first device | device to stream (serial or AVD name) |
 | `--emulator <s>` / `--avd <s>` | — | — | aliases for `--serial` |
-| `--capture <mode>` | `CAPTURE` | `screenrecord` | `screenrecord` · `scrcpy` · `grpc` — see [capture-backends.md](capture-backends.md) |
+| `--capture <mode>` | `CAPTURE` | `screenrecord` | `screenrecord` · `scrcpy` · `grpc` — see [docs/capture-backends.md](../../../docs/capture-backends.md) |
 | `--scrcpy-server <path>` | `SCRCPY_SERVER_JAR` | auto-download | scrcpy-server jar (scrcpy mode); omit to auto-download + SHA-256-verify the pinned v4.1 jar |
 | `--scrcpy-control <v>` | `SCRCPY_CONTROL` | `on` | `off` → route input via `adb input` in scrcpy mode |
 | `-d`, `--headless` | `STREAM_DROID_HEADLESS=1` | off | don't auto-open the browser (server still runs) |
 | `-v`, `--verbose` | `STREAM_DROID_VERBOSE=1` | off | show logs — quiet by default (only errors); `-v` prints info/warn/debug + timestamps |
-| `-t`, `--tunnel` | — | off | public link + QR, **view-only** — see [remote-tunnel.md](remote-tunnel.md) |
+| `-t`, `--tunnel` | — | off | public link + QR, **view-only** — see the [`share` skill](../../share/references/remote-tunnel.md) |
 | `-tc`, `--tunnel-control` | — | off | tunnel with a **controllable** shared link |
 
 ## Examples

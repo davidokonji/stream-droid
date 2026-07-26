@@ -59,7 +59,7 @@ src/
   log.ts           leveled logger; quiet by default — only error() prints without -v/--verbose
   adb.ts           adbFor(serial), resolveSerial/targetSerial, deviceSize, sendPoster
   controllers.ts   Control/Incoming types; adb/scrcpy/grpc controllers; pickController
-  httpServer.ts    static assets + /api/{state,start,apps,launch,hierarchy} (ts-pattern routes)
+  httpServer.ts    static assets + /api/{state,start,stop,apps,launch,hierarchy} (ts-pattern routes)
   wsServer.ts      per-connection: stream frames out, route control in
   commands.ts      -h help · -a list · --kill · -l log · --tunnel
   lifecycle.ts     preflight, first-run asset build, boot target, openBrowser
@@ -77,13 +77,20 @@ src/
                    api.ts, token.ts, types.ts, styles.css, components/*
   types/           ambient d.ts for untyped deps (jmuxer, localtunnel)
 public/            index.html (shell) + built client.js / app.css (gitignored)
-skills/
-  stream-droid/    agent skill: drive an Android device via the server
-    SKILL.md       the skill (loop + quick reference)
-    scripts/       drive.mjs (control) · check.mjs (prereqs) — plain ESM, run on bun OR node ≥ 18
-    references/     per-feature docs: cli, http-api, websocket, capture-backends,
-                   input-control, semantic-layer, remote-tunnel, browser-ui, …
+skills/            the `stream-droid` plugin — four agent skills (namespaced /stream-droid:<skill>)
+  drive/           see & act loop; owns the shared scripts
+    SKILL.md       the loop + quick reference
+    scripts/       ensure-server.mjs (start/health) · drive.mjs (control) · check.mjs (prereqs) — plain ESM, bun OR node ≥ 18
+    references/    cli, input-control, semantic-layer, browser-ui, agent-skill
+  emulators/       list / boot (headless) / kill AVDs  (SKILL.md + references/)
+  apps/            list / launch / foreground apps      (reuses drive's scripts)
+  share/           public link + QR, view-only vs control
 ```
+
+Skills reuse `drive`'s scripts via `$CLAUDE_PLUGIN_ROOT`, so they ship together.
+Server protocol/pipeline internals stay in the code + `docs/`, not the skill
+surface. Bump the version in all four `SKILL.md` + `.claude-plugin/*.json` on any
+skill change.
 
 ## Conventions (follow these)
 

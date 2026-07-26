@@ -9,6 +9,7 @@ const row = tv({
     root: 'flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5',
     dot: 'text-[9px]',
     name: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
+    live: 'flex items-center gap-2',
     booting: 'flex items-center gap-1.5 text-[12px] text-amber-300',
     spinner: 'h-3 w-3 animate-spin rounded-full border border-amber-300/40 border-t-amber-300',
   },
@@ -26,16 +27,42 @@ interface Props {
   // starting a new stream) are disabled until it clears. An already-live stream
   // is left alone.
   busy: boolean;
+  // This AVD was booted headless — its "close" shuts the emulator down entirely
+  // (no window), vs. just detaching the stream from a windowed one.
+  streamingHeadless: boolean;
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
+  onCloseDevice: () => void;
 }
 
-export function AvdRow({ avd, active, streaming, booting, busy, onStream, onStart }: Props) {
+export function AvdRow({
+  avd,
+  active,
+  streaming,
+  booting,
+  busy,
+  streamingHeadless,
+  onStream,
+  onStart,
+  onCloseDevice,
+}: Props) {
   const s = row({ active });
   const trailing =
     avd.running && avd.serial ? (
       streaming ? (
-        <LiveDot />
+        <span className={s.live()}>
+          <LiveDot />
+          <Button
+            onClick={onCloseDevice}
+            title={
+              streamingHeadless
+                ? 'Shut this headless emulator down'
+                : 'Stop streaming (the emulator keeps running)'
+            }
+          >
+            {streamingHeadless ? 'Close' : 'Stop'}
+          </Button>
+        </span>
       ) : (
         <Button disabled={busy} onClick={() => onStream(avd.serial!)}>
           Stream

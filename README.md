@@ -118,7 +118,7 @@ stream-droid --tunnel-control      # share a controllable public link + QR
 stream-droid -l Pixel_9            # tail colourised logcat, no server
 ```
 
-Full flag/command reference: [skills/stream-droid/references/cli.md](skills/stream-droid/references/cli.md).
+Full flag/command reference: [skills/drive/references/cli.md](skills/drive/references/cli.md).
 
 ## How it works
 
@@ -133,23 +133,29 @@ poster, headless boot, one-pipe-per-client): **[docs/architecture.md](docs/archi
 
 ## Agent usage
 
-`skills/stream-droid/` ships an [agent skill](skills/stream-droid/SKILL.md) so an
-AI agent can drive a device through a running server. Its `drive.mjs` helper wraps
-the loop — `shot` (screenshot) → `ui` (elements) → `tap:text` / `tap:id` / `tap` /
-`swipe` / `text` / `key`:
+The `stream-droid` plugin ships four focused agent skills so an AI agent can work
+a device through the server:
+
+| Skill | For |
+|---|---|
+| [`/stream-droid:drive`](skills/drive/SKILL.md) | the see & act loop — `shot` → `ui` → `tap` / `type` / `swipe` / `key` |
+| [`/stream-droid:emulators`](skills/emulators/SKILL.md) | list / boot (headless) / kill AVDs |
+| [`/stream-droid:apps`](skills/apps/SKILL.md) | list packages, launch or foreground an app |
+| [`/stream-droid:share`](skills/share/SKILL.md) | expose the session as a public link + QR |
+
+The `drive` skill's helper starts the server for you and wraps the loop:
 
 ```bash
-bun run src/server.ts -d                               # server, headless
-bun skills/stream-droid/scripts/check.mjs              # verify prerequisites
-bun skills/stream-droid/scripts/drive.mjs launch com.android.settings  # open an app
-bun skills/stream-droid/scripts/drive.mjs shot         # screen.png
-bun skills/stream-droid/scripts/drive.mjs ui internet  # elements matching "internet"
-bun skills/stream-droid/scripts/drive.mjs tap:text "Network & internet"
+bun skills/drive/scripts/ensure-server.mjs             # start the server headless (if needed)
+bun skills/drive/scripts/check.mjs                     # verify prerequisites
+bun skills/drive/scripts/drive.mjs shot                # screen.png
+bun skills/drive/scripts/drive.mjs ui internet         # elements matching "internet"
+bun skills/drive/scripts/drive.mjs tap:text "Network & internet"
 ```
 
 The helper scripts are plain ESM and run under **bun or node ≥ 18**.
 
-### Install the skill
+### Install the skills
 
 **Claude Code** — the repo is a self-contained plugin marketplace, so add it and
 install straight from the Claude Code prompt:
@@ -159,8 +165,10 @@ install straight from the Claude Code prompt:
 /plugin install stream-droid@stream-droid
 ```
 
-It surfaces as **`/stream-droid:stream-droid`** (run `/reload-plugins` if it
-doesn't show up right away).
+The skills then surface as **`/stream-droid:drive`**, **`:emulators`**,
+**`:apps`**, and **`:share`** (run `/reload-plugins` if they don't show up right
+away). To update later: `/plugin marketplace update stream-droid` then
+`/plugin update stream-droid@stream-droid`.
 
 **Any agent (skills.sh)** — install from the GitHub repo with the
 [skills.sh](https://skills.sh) CLI, no separate registry:
@@ -169,13 +177,12 @@ doesn't show up right away).
 npx skills add davidokonji/stream-droid
 ```
 
-**Manual** — copy `skills/stream-droid/` into `~/.claude/skills/` (personal, every
-project) or `.claude/skills/` (checked into a specific repo).
+**Manual** — copy the `skills/` tree into `~/.claude/skills/` (personal, every
+project) or `.claude/skills/` (checked into a specific repo). The sibling skills
+share the `drive` skill's scripts, so copy the whole tree, not one folder.
 
-Per-feature agent references (CLI, HTTP API, WebSocket protocol, capture, input,
-semantic layer, tunnel, UI) live in
-[`skills/stream-droid/references/`](skills/stream-droid/references/). Full
-publishing and install details are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
+Each skill's task references live in its own `references/` folder. Full publishing,
+install, and update details are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Local development
 

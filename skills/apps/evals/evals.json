@@ -1,0 +1,27 @@
+{
+  "skill_name": "apps",
+  "evals": [
+    {
+      "id": 1,
+      "name": "find-package-then-launch",
+      "prompt": "Open the Settings app on the running emulator.",
+      "expected_behavior": [
+        "Finds the package if unsure with `bun skills/drive/scripts/drive.mjs apps settings` (or the `$CLAUDE_PLUGIN_ROOT` path) rather than guessing.",
+        "Launches by package name: `bun skills/drive/scripts/drive.mjs launch com.android.settings`.",
+        "Confirms it opened by switching to `/stream-droid:drive` and taking a screenshot / checking the foreground app — does not assume the launch worked."
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "server-ensured-first",
+      "prompt": "Which app is in the foreground right now?",
+      "expected_behavior": [
+        "Ensures a server is up with `bun skills/drive/scripts/ensure-server.mjs` if one isn't already running.",
+        "Runs `bun skills/drive/scripts/drive.mjs apps` and reports the current foreground app from the output.",
+        "Does NOT hand-start the server or read raw adb output directly."
+      ],
+      "files": []
+    }
+  ]
+}

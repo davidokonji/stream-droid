@@ -5,7 +5,7 @@
     {
       "title": "Android",
       "description": "See and drive an Android emulator or device from an agent — screenshot, read the UI hierarchy, and tap/type/swipe.",
-      "skills": ["stream-droid"]
+      "skills": ["drive", "emulators", "apps", "share"]
     }
   ]
 }
