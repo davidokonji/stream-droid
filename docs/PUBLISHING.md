@@ -3,8 +3,9 @@
 This repo ships **two products** from one tree:
 
 1. **the npm package** `stream-droid` — the server/CLI (run with `bunx stream-droid`)
-2. **the agent skill** `stream-droid` (in `skills/stream-droid/`) — publishable to
-   [skills.sh](https://skills.sh) and installable as a Claude skill
+2. **the agent skills** `drive` / `emulators` / `apps` / `share` (the
+   `stream-droid` plugin, in `skills/`) — publishable to
+   [skills.sh](https://skills.sh) and installable as Claude skills
 
 All the metadata is already in place. The commands below are the ones **you** run
 (they need your npm and GitHub accounts — they can't be run for you).
@@ -78,11 +79,17 @@ upload. The repo already has the required shape:
 ```
 skills.sh.json                     ← manifest at repo root (groupings)
 skills/
-  stream-droid/
+  drive/                           ← the see & act loop (base skill)
     SKILL.md                       ← name, description, license, metadata
-    scripts/   drive.mjs, check.mjs
-    references/  cli.md, http-api.md, …   ← plural, per the spec
+    scripts/   ensure-server.mjs, drive.mjs, check.mjs
+    references/  cli.md, input-control.md, …   ← plural, per the spec
+  emulators/  SKILL.md + references/   ← list / boot / kill AVDs
+  apps/       SKILL.md + references/   ← list / launch / foreground apps
+  share/      SKILL.md + references/   ← public link + QR
 ```
+
+The `emulators`, `apps`, and `share` skills reuse the `drive` skill's scripts
+(referenced via `$CLAUDE_PLUGIN_ROOT`), so they're shipped and installed together.
 
 Steps:
 
@@ -98,8 +105,10 @@ Anyone (including you) can then install the skill into their agent with:
 npx skills add davidokonji/stream-droid
 ```
 
-That drops `skills/stream-droid/` into the local agent's skills directory. The
-root `skills.sh.json` groups it under **Android** in the skills.sh UI.
+That drops the `skills/` tree (the `drive`, `emulators`, `apps`, and `share`
+skills) into the local agent's skills directory. The root `skills.sh.json` groups
+them under **Android** in the skills.sh UI. To update later, re-run the same
+`npx skills add …` command.
 
 To list it on the skills.sh directory, follow their submission flow at
 <https://skills.sh> (point it at `github.com/davidokonji/stream-droid`).
@@ -108,13 +117,14 @@ To list it on the skills.sh directory, follow their submission flow at
 
 ## 3. Install as a Claude skill
 
-`SKILL.md` follows the [agentskills.io](https://agentskills.io/specification)
-spec, which is the same format Claude Code uses for skills — so it works as-is.
-Four ways to install:
+Each `SKILL.md` follows the [agentskills.io](https://agentskills.io/specification)
+spec, which is the same format Claude Code uses for skills — so they work as-is.
+The plugin ships **four** skills: `drive`, `emulators`, `apps`, `share`. Three
+ways to install:
 
 **A. Via the Claude Code plugin marketplace (recommended for Claude).** The repo
 is a self-contained marketplace + plugin (`.claude-plugin/marketplace.json` +
-`plugin.json`); the skill under `skills/stream-droid/` is auto-discovered.
+`plugin.json`); the skills under `skills/*/` are auto-discovered.
 
 ```
 /plugin marketplace add davidokonji/stream-droid
@@ -122,9 +132,8 @@ is a self-contained marketplace + plugin (`.claude-plugin/marketplace.json` +
 /reload-plugins
 ```
 
-The skill then surfaces as **`/stream-droid:stream-droid`**. Bumping the plugin's
-`version` in both `.claude-plugin/*.json` (keep it in step with `package.json`) is
-what tells installed users an update is available.
+The skills then surface as **`/stream-droid:drive`**, **`:emulators`**,
+**`:apps`**, and **`:share`** (plugin skills are always namespaced `plugin:skill`).
 
 **B. Via the skills CLI (same as skills.sh):**
 
@@ -132,27 +141,39 @@ what tells installed users an update is available.
 npx skills add davidokonji/stream-droid
 ```
 
-**C. Personal skill (available in every project):**
+**C. Manual copy.** The sibling skills share the `drive` skill's scripts, so copy
+the whole `skills/` tree — not one folder — into `~/.claude/skills/` (personal) or
+`.claude/skills/` (checked into a repo):
 
 ```bash
 mkdir -p ~/.claude/skills
-cp -R skills/stream-droid ~/.claude/skills/stream-droid
+cp -R skills/* ~/.claude/skills/
 ```
 
-**D. Project skill (checked in for a specific repo):**
+Restart Claude Code (or reload skills). The agent surfaces these skills whenever a
+task involves an Android emulator/device — building or testing an Expo, React
+Native, Flutter, or native Android app. The `drive` skill starts the server for
+you (`scripts/ensure-server.mjs`).
 
-```bash
-mkdir -p .claude/skills
-cp -R skills/stream-droid .claude/skills/stream-droid
+> The helper scripts (`ensure-server.mjs`, `drive.mjs`, `check.mjs`) are plain ESM
+> and run under **bun or node ≥ 18** — only the server itself needs bun.
+
+### Updating an installed plugin
+
+Plugin updates are **manual by default** (users can opt into background
+auto-update per marketplace via `/plugin` → **Marketplaces** → *Enable
+auto-update*). To pull a new version:
+
+```
+/plugin marketplace update stream-droid     # refresh marketplace.json from GitHub
+/plugin update stream-droid@stream-droid     # update the installed plugin
 ```
 
-Restart Claude Code (or reload skills). The agent will surface **stream-droid**
-whenever a task involves seeing or driving an Android emulator/device. It expects
-a stream-droid server running locally — see the skill's Prerequisites section
-(`bun run src/server.ts -d`, then `node scripts/check.mjs` to verify).
-
-> The skill's helper scripts (`scripts/drive.mjs`, `scripts/check.mjs`) are plain
-> ESM and run under **bun or node ≥ 18** — only the server itself needs bun.
+Claude Code decides an update is available by comparing the `version` field
+against what's installed — so **every skill/plugin change must bump the version**
+in all four `skills/*/SKILL.md` (`metadata.version`) **and** both
+`.claude-plugin/*.json`, kept in step with `package.json`. skills.sh installs
+update by re-running `npx skills add davidokonji/stream-droid`.
 
 ---
 
@@ -227,7 +248,7 @@ bunx stream-droid@beta     # newest beta
 ## Release checklist (stable)
 
 - [ ] CI green on `main`; `npm pack --dry-run` shows `public/client.js`, `public/app.css`, `src/`, `skills/`
-- [ ] If the skill/plugin changed, bump the version in `skills/stream-droid/SKILL.md`
+- [ ] If any skill/plugin changed, bump the version in all four `skills/*/SKILL.md`
       (`metadata.version`) **and** both `.claude-plugin/*.json` to match, and commit to `main` first
 - [ ] Actions tab → **Publish stable** → *Run workflow* → pick `patch` / `minor` / `major`
 - [ ] Confirm the run is green (it bumps, tags, pushes, and publishes `latest`)

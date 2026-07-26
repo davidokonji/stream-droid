@@ -7,7 +7,7 @@ import { match } from 'ts-pattern';
 import { config, isAuthorized } from './config.ts';
 import { logger } from './log.ts';
 import { adbFor, resolveSerial } from './adb.ts';
-import { avdStatuses, listDevices, startEmulator } from './emulator.ts';
+import { avdStatuses, killEmulator, listDevices, startEmulator } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
 
@@ -78,6 +78,26 @@ export function createHttpServer(): http.Server {
             return;
           }
           json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless }) });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
+      })
+      // Shut down a running emulator (control-gated, like /api/start). Used by the
+      // UI to close a headless emulator entirely when you're done streaming it.
+      .with({ path: '/api/stop', method: 'POST' }, async () => {
+        if (!isAuthorized(url)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
+        try {
+          const { serial: reqSerial } = JSON.parse(await readBody(req)) as { serial?: string };
+          const serial = resolveSerial(reqSerial ?? null);
+          if (!serial) {
+            json(res, 400, { ok: false, error: 'no matching device' });
+            return;
+          }
+          killEmulator(serial);
+          json(res, 200, { ok: true, serial });
         } catch (e) {
           json(res, 500, { ok: false, error: (e as Error).message });
         }

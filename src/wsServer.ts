@@ -78,14 +78,24 @@ export function attachWebSocket(server: http.Server): void {
     // so a bad connection closes only this socket instead of crashing the server.
     let capture: CaptureHandle;
     try {
-      capture = startCapture(serial, adbArgs, (chunk) => {
-        if (ws.readyState === ws.OPEN) ws.send(chunk); // binary frame (H.264 or PNG)
-        frames++;
-        bytes += chunk.length;
-        if (frames === 1) log.debug(`${serial}: first frame in ${Date.now() - t0}ms (${chunk.length}b)`);
-        else if (config.VERBOSE && frames % 120 === 0)
-          log.debug(`${serial}: ${frames} frames · ${mb(bytes)}`);
-      });
+      capture = startCapture(
+        serial,
+        adbArgs,
+        (chunk) => {
+          if (ws.readyState === ws.OPEN) ws.send(chunk); // binary frame (H.264 or PNG)
+          frames++;
+          bytes += chunk.length;
+          if (frames === 1) log.debug(`${serial}: first frame in ${Date.now() - t0}ms (${chunk.length}b)`);
+          else if (config.VERBOSE && frames % 120 === 0)
+            log.debug(`${serial}: ${frames} frames · ${mb(bytes)}`);
+        },
+        () => {
+          // Capture ended for good (device closed / stream died). Close the socket
+          // so the client shows a disconnected state instead of a frozen frame; the
+          // reason is already logged in select.ts.
+          if (ws.readyState === ws.OPEN) ws.close();
+        },
+      );
     } catch (e) {
       log.error(`${serial}: capture failed to start: ${(e as Error).message}`);
       ws.send(JSON.stringify({ type: 'error', message: (e as Error).message }));

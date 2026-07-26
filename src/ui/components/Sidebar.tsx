@@ -1,15 +1,29 @@
+import { tv } from 'tailwind-variants';
 import type { AvdStatus } from '../types';
 import { AvdRow } from './AvdRow';
+
+const toggle = tv({
+  base: 'flex items-center gap-1.5 opacity-80',
+  variants: {
+    disabled: { true: 'cursor-not-allowed opacity-40' },
+  },
+});
 
 interface Props {
   avds: AvdStatus[];
   activeSerial: string | null;
   liveSerial: string | null;
   booting: Set<string>;
+  // Any AVD booting? Disables conflicting controls (other Start/Stream buttons
+  // and the headless toggle) until the boot resolves.
+  busy: boolean;
+  // AVDs booted headless this session — their "close" shuts the emulator down.
+  headlessBooted: Set<string>;
   headless: boolean;
   onHeadless: (v: boolean) => void;
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
+  onCloseDevice: () => void;
   onClose: () => void;
 }
 
@@ -18,10 +32,13 @@ export function Sidebar({
   activeSerial,
   liveSerial,
   booting,
+  busy,
+  headlessBooted,
   headless,
   onHeadless,
   onStream,
   onStart,
+  onCloseDevice,
   onClose,
 }: Props) {
   return (
@@ -51,16 +68,24 @@ export function Sidebar({
             active={a.serial === activeSerial}
             streaming={a.serial != null && a.serial === liveSerial}
             booting={booting.has(a.name)}
+            busy={busy}
+            streamingHeadless={headlessBooted.has(a.name)}
             onStream={(s) => {
               onStream(s);
               onClose();
             }}
             onStart={onStart}
+            onCloseDevice={onCloseDevice}
           />
         ))}
       </div>
-      <label className="flex items-center gap-1.5 opacity-80">
-        <input type="checkbox" checked={headless} onChange={(e) => onHeadless(e.target.checked)} />
+      <label className={toggle({ disabled: busy })} aria-disabled={busy}>
+        <input
+          type="checkbox"
+          checked={headless}
+          disabled={busy}
+          onChange={(e) => onHeadless(e.target.checked)}
+        />
         headless (<code>-no-window</code>)
       </label>
       <div className="text-[12px] opacity-45">

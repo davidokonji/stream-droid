@@ -9,6 +9,17 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     window). **Stream** on a running one connects to it.
   - After **Start**, the row shows a spinner + **booting…** until the emulator
     comes online (~20-60 s) — it doesn't silently revert to Start.
+  - The streaming row shows **● LIVE** with a **Close/Stop** button. If the app
+    booted that AVD **headless** (no window), it reads **Close** and shuts the
+    emulator down entirely (`adb emu kill`) — there's no window to fall back to.
+    Otherwise it reads **Stop** and just detaches the stream; the emulator keeps
+    running and can be re-streamed. (Re-selecting the already-live device is a
+    no-op — it doesn't restart the capture.)
+  - While any AVD is booting, the **other** controls are disabled to prevent
+    conflicts — every other **Start**, the **Stream** action on running rows, and
+    the **headless** toggle go non-interactive (dimmed, `not-allowed` cursor) and
+    re-enable automatically once the boot resolves. An already-live stream is left
+    untouched.
   - The streaming row shows a pulsing **● LIVE** badge instead of Stream.
   - Polls `/api/state` every 3 s to reflect boot/shutdown.
 - **Main** — the live device, nav buttons (◀ Back · ● Home · ■ Recents), and a
@@ -27,7 +38,7 @@ On the device surface:
 - **● LIVE** — shown in the sidebar row, over the video, and in the status when
   frames are flowing. Only one device streams at a time.
 - **👁 view-only** — shown when connected over a view-only tunnel; input is
-  disabled (see [remote-tunnel.md](remote-tunnel.md)).
+  disabled (see the [`share` skill](../../share/references/remote-tunnel.md)).
 - **Preview overlay** — when frames aren't flowing, the preview shows a state
   instead of a frozen/blank frame: a spinner while **connecting**, and
   **device disconnected** (amber) when the stream drops, over the last frame.

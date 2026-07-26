@@ -1,0 +1,76 @@
+{
+  "skill_name": "drive",
+  "evals": [
+    {
+      "id": 1,
+      "name": "look-read-act-loop",
+      "prompt": "On the Android emulator, open Wi-Fi settings. The Settings app is already on screen.",
+      "expected_behavior": [
+        "Ensures a server is up first with `bun scripts/ensure-server.mjs` (does NOT hand-start the server with a raw `bun run src/server.ts` command or tail its logs).",
+        "Takes a screenshot with `bun scripts/drive.mjs shot` and/or lists elements with `bun scripts/drive.mjs ui` before acting.",
+        "Taps by element — `bun scripts/drive.mjs tap:text \"Network & internet\"` (or `tap:id`) — NOT raw pixel coordinates.",
+        "Screenshots again after the tap to confirm the screen changed.",
+        "Matches on the decoded text `Network & internet`, not the HTML-escaped `&amp;`."
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "prefer-elements-over-pixels",
+      "prompt": "Tap the search icon on the current screen.",
+      "expected_behavior": [
+        "Reads the UI first (`bun scripts/drive.mjs ui search`) to find the element.",
+        "Taps with `bun scripts/drive.mjs tap:id search` (resource-id, full or the tail after `/`) or `tap:text`.",
+        "Only falls back to `bun scripts/drive.mjs tap <x> <y>` with normalized [0..1] coordinates if no element matches.",
+        "Does NOT pass device-pixel coordinates."
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "no-device-defers-to-emulators-skill",
+      "prompt": "Drive my Pixel emulator, but I don't think anything is running yet.",
+      "expected_behavior": [
+        "Checks what's running with `bun scripts/drive.mjs devices`.",
+        "When nothing is running, defers to the `/stream-droid:emulators` skill to boot an AVD rather than trying to boot it from the drive skill.",
+        "Does not fabricate a serial or blindly send taps to a device that isn't there."
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "compose-screen-fallback",
+      "prompt": "I'm on a Jetpack Compose settings screen and `ui` came back empty. Tap the toggle near the top.",
+      "expected_behavior": [
+        "Recognizes that Compose / SpaActivity screens expose little to uiautomator, so `ui` / `tap:text` can be empty.",
+        "Falls back to a screenshot (`bun scripts/drive.mjs shot`) and reads the toggle position from the image.",
+        "Taps with normalized coordinates `bun scripts/drive.mjs tap <x> <y>`.",
+        "Screenshots again to confirm the toggle changed state."
+      ],
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "does-not-expose-server-internals",
+      "prompt": "Type \"hello\" into the focused field on the device.",
+      "expected_behavior": [
+        "Uses `bun scripts/drive.mjs text \"hello\"`.",
+        "Relies on `ensure-server.mjs` / the helper rather than talking to the HTTP or WebSocket API directly or reasoning about gRPC/scrcpy/adb input paths.",
+        "Targets a specific device with `--serial <serial|avd>` only if more than one is running."
+      ],
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "captures-land-in-active-folder",
+      "prompt": "Record a 5-second clip of the screen and take a screenshot.",
+      "expected_behavior": [
+        "Records with `bun scripts/drive.mjs record 5` and screenshots with `bun scripts/drive.mjs shot`.",
+        "Lets the files save to the current working (active) folder by default — does NOT dump them into the skill directory or a temp path.",
+        "Only passes an explicit path or `--out-dir` / `$STREAM_DROID_OUT_DIR` if the user asked for a specific location.",
+        "Reports the saved file paths back to the user."
+      ],
+      "files": []
+    }
+  ]
+}
