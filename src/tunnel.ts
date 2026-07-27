@@ -1,12 +1,6 @@
-// Tunnel lifecycle in one place, so a share can be started at boot and stopped
-// later without killing the server. The relay handle is kept here — so stopTunnel()
-// and the /api/tunnel route can close it, and /api/state can report whether one is
-// live (with a scannable QR for the operator).
-//
-// Two backends: cloudflared (a `*.trycloudflare.com` link with NO visitor
-// interstitial — needs the `cloudflared` binary) and localtunnel (no install, but
-// loca.lt shows a reminder page on first visit). `auto` prefers cloudflared when
-// available. Both are loaded/started lazily — only when a share is actually opened.
+// Tunnel lifecycle: open a share, stop it without killing the server, and report
+// its state. Two backends — cloudflared (default; no visitor interstitial, binary
+// via the `cloudflared` npm package) and localtunnel (fallback) — loaded lazily.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { config } from './config.ts';
@@ -20,26 +14,22 @@ interface TunnelHandle {
 }
 
 let current: TunnelHandle | null = null;
-let backend: string | null = null; // which relay is in use, for status/logging
-let shareUrl: string | null = null; // the link recipients open (carries ?k= in control mode)
-let qrSvg: string | null = null; // an SVG QR of shareUrl, for the UI
+let backend: string | null = null;
+let shareUrl: string | null = null; // carries ?k= in control mode
+let qrSvg: string | null = null;
 
 export interface TunnelInfo {
   active: boolean;
   url: string | null; // public base URL (view-only); safe to expose to anyone
-  control: boolean; // whether the shared link carries the control token
-  backend: string | null; // 'cloudflared' | 'localtunnel'
-  host: boolean; // is the caller the local operator? (gates the share panel + data)
-  // The share panel is the host's — only the local operator sees the link/QR (and
-  // can stop). A recipient of the shared link (even a control recipient) must not:
-  // the QR/link embed the control token, and it's the host's session to manage.
+  control: boolean;
+  backend: string | null;
+  host: boolean;
+  // shareUrl/qr embed the control token, so tunnelInfo returns them only to the
+  // host (local operator) — never to a recipient of the shared link.
   shareUrl: string | null;
   qr: string | null;
 }
 
-// `host` = the caller is the local operator (a direct request, not one forwarded
-// in over the relay). Only the host gets the share link/QR and renders the share
-// panel; recipients of the shared link never do.
 export function tunnelInfo(host: boolean): TunnelInfo {
   return {
     active: current !== null,
@@ -52,9 +42,7 @@ export function tunnelInfo(host: boolean): TunnelInfo {
   };
 }
 
-// Prefer cloudflared (no visitor interstitial); use localtunnel only if forced.
-// cloudflared's binary is provided by the `cloudflared` npm package on demand, so
-// no manual install is needed — 'auto' falls back to localtunnel only if it fails.
+// Prefer cloudflared unless localtunnel is forced; 'auto' falls back on failure.
 function pickBackend(): 'cloudflared' | 'localtunnel' {
   return config.TUNNEL_BACKEND === 'localtunnel' ? 'localtunnel' : 'cloudflared';
 }
@@ -72,22 +60,27 @@ async function resolveCloudflaredBin(): Promise<string> {
   return cf.bin;
 }
 
-async function openLocaltunnel(port: number, onDied: () => void): Promise<TunnelHandle> {
+type OnDied = (h: TunnelHandle | undefined) => void;
+
+async function openLocaltunnel(port: number, onDied: OnDied): Promise<TunnelHandle> {
   const localtunnel = (await import('localtunnel')).default;
   const t = await localtunnel({ port });
-  t.on('close', onDied); // the relay can drop the tunnel on its own
-  return { url: t.url, close: () => t.close() };
+  const handle: TunnelHandle = { url: t.url, close: () => t.close() };
+  t.on('close', () => onDied(handle));
+  return handle;
 }
 
 // Quick tunnel: `cloudflared tunnel --url …` prints a trycloudflare URL once it's
-// up (a few seconds), then stays running; killing the child closes the tunnel.
-async function openCloudflared(port: number, onDied: () => void): Promise<TunnelHandle> {
+// up, then stays running; killing the child closes it.
+async function openCloudflared(port: number, onDied: OnDied): Promise<TunnelHandle> {
   const bin = await resolveCloudflaredBin();
   return new Promise((resolve, reject) => {
     const child = spawn(bin, ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    let handle: TunnelHandle | undefined;
     let settled = false;
+    let out = '';
     const finish = (fn: () => void): void => {
       if (settled) return;
       settled = true;
@@ -95,15 +88,15 @@ async function openCloudflared(port: number, onDied: () => void): Promise<Tunnel
       fn();
     };
     const scan = (buf: Buffer): void => {
-      const m = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/.exec(buf.toString());
-      if (m) finish(() => resolve({ url: m[0], close: () => child.kill() }));
+      out = (out + buf).slice(-4096); // keep the tail so a URL split across chunks still matches
+      const m = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/.exec(out);
+      if (m) finish(() => resolve((handle = { url: m[0], close: () => child.kill() })));
     };
     child.stdout?.on('data', scan);
     child.stderr?.on('data', scan);
     child.on('error', (e) => finish(() => reject(e)));
-    // Exit *after* we have a URL means the relay dropped; before means it failed.
     child.on('exit', () =>
-      settled ? onDied() : finish(() => reject(new Error('cloudflared exited before providing a URL'))),
+      settled ? onDied(handle) : finish(() => reject(new Error('cloudflared exited before providing a URL'))),
     );
     const timer = setTimeout(
       () =>
@@ -121,13 +114,13 @@ export async function openTunnel(port: number): Promise<TunnelInfo> {
   if (current) return tunnelInfo(true);
   let which = pickBackend();
   let handle: TunnelHandle;
-  const onDied = (): void => {
-    if (current === handle) {
+  const onDied: OnDied = (h) => {
+    if (h && current === h) {
       current = null;
       backend = null;
       shareUrl = null;
       qrSvg = null;
-      log.info('tunnel closed');
+      console.log('[stream-droid] tunnel closed (the relay dropped the connection)');
     }
   };
   try {
@@ -158,8 +151,8 @@ export function stopTunnel(): boolean {
   qrSvg = null;
   try {
     t.close();
-  } catch {
-    /* already gone — nothing to do */
+  } catch (e) {
+    log.warn(`tunnel may not have fully torn down: ${(e as Error).message}`);
   }
   return true;
 }

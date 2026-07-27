@@ -92,6 +92,27 @@ export function listAvds(): string[] {
   }
 }
 
+// Physical device model name, cached by serial (stable) so it isn't re-shelled on
+// every /api/state poll. Falls back to the serial when unreadable.
+const modelCache = new Map<string, string>();
+function physicalModel(serial: string): string {
+  const cached = modelCache.get(serial);
+  if (cached) return cached;
+  try {
+    const model = execFileSync('adb', ['-s', serial, 'shell', 'getprop', 'ro.product.model'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (model) {
+      modelCache.set(serial, model);
+      return model;
+    }
+  } catch {
+    /* property unreadable — fall back to the serial */
+  }
+  return serial;
+}
+
 export function listDevices(): DeviceInfo[] {
   let out = '';
   try {
@@ -113,19 +134,16 @@ export function listDevices(): DeviceInfo[] {
           .split('\n')[0]!
           .trim() || serial;
     } catch {
-      // Physical device / no emulator console — show the model name (e.g. "Pixel 7")
-      // instead of the raw serial where we can read it.
-      try {
-        avd =
-          execFileSync('adb', ['-s', serial, 'shell', 'getprop', 'ro.product.model'], {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'ignore'],
-          }).trim() || serial;
-      } catch {
-        /* leave as the serial */
-      }
+      avd = physicalModel(serial); // no emulator console — a physical device
     }
     devices.push({ serial, avd });
+  }
+  // avdStatuses keys by name, so two same-model devices ("Pixel 7") would collapse
+  // to one row — disambiguate duplicates with a serial suffix.
+  const counts = new Map<string, number>();
+  for (const d of devices) counts.set(d.avd, (counts.get(d.avd) ?? 0) + 1);
+  for (const d of devices) {
+    if ((counts.get(d.avd) ?? 0) > 1 && d.avd !== d.serial) d.avd = `${d.avd} (${d.serial.slice(-4)})`;
   }
   return devices;
 }

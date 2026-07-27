@@ -37,11 +37,13 @@ const json = (res: http.ServerResponse, code: number, body: unknown): void => {
   res.end(JSON.stringify(body));
 };
 
-// A request that arrived over the public relay carries a forwarding header
-// (localtunnel/cloudflared add one); a direct local operator request doesn't.
-// Used to gate token-bearing share data + who may stop the share.
+// Remote = not the local operator, so no control-token share link/QR or stop.
+// Loopback + no relay header is the operator; a LAN peer (non-loopback, our port
+// binds 0.0.0.0) or a tunnel viewer (adds a forwarding header) is remote.
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const isRemote = (req: http.IncomingMessage): boolean =>
-  Boolean(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip']);
+  Boolean(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip']) ||
+  !LOOPBACK.has(req.socket.remoteAddress ?? '');
 
 function serveStatic(res: http.ServerResponse, path: string): void {
   const file = path === '/' ? '/index.html' : path;
@@ -65,11 +67,8 @@ export function createHttpServer(): http.Server {
     const q = new URL(url, 'http://localhost').searchParams;
 
     await match({ path, method: req.method })
-      // Emulator state for the sidebar.
+      // Emulator state for the sidebar (+ host-only share info).
       .with({ path: '/api/state' }, () => {
-        // Only the local operator (host) gets the share panel + link/QR; a
-        // recipient of the shared link — even a control recipient — must not see
-        // the host's share dialog. Host = a direct request (no relay header).
         json(res, 200, {
           avds: avdStatuses(),
           devices: listDevices(),
@@ -78,9 +77,7 @@ export function createHttpServer(): http.Server {
           tunnel: tunnelInfo(!isRemote(req)), // share panel is host-only
         });
       })
-      // Stop sharing: close the public tunnel without killing the server. Only the
-      // local operator (host) may — a request forwarded in over the relay (any
-      // recipient of the shared link) can't stop the host's share.
+      // Stop sharing without killing the server — host only (see isRemote).
       .with({ path: '/api/tunnel', method: 'POST' }, async () => {
         if (isRemote(req)) {
           json(res, 403, { ok: false, error: 'only the host can manage sharing' });
