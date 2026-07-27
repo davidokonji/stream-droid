@@ -1,6 +1,3 @@
-// Server-startup lifecycle: preflight checks, first-run asset build, booting a
-// named target emulator, and opening the browser.
-
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -11,9 +8,7 @@ import { log } from './log.ts';
 import { targetSerial } from './adb.ts';
 import { hasAdb, hasEmulator, listAvds, startEmulator } from './emulator.ts';
 
-// Fail fast with actionable guidance before starting the server.
 export function preflight(): void {
-  // adb is mandatory — capture and input both go through it.
   if (!hasAdb()) {
     fail(
       '`adb` not found on PATH.',
@@ -22,8 +17,6 @@ export function preflight(): void {
     );
   }
 
-  // scrcpy backend needs a matching server jar. A user-supplied path must exist;
-  // if none is given, ensureScrcpyJar() auto-downloads the pinned jar at startup.
   if (config.CAPTURE === 'scrcpy') {
     if (config.SCRCPY_JAR && !existsSync(config.SCRCPY_JAR)) {
       fail(
@@ -36,7 +29,6 @@ export function preflight(): void {
     fail(`unknown --capture "${config.CAPTURE}".`, 'Use "screenrecord" (default), "scrcpy", or "grpc".');
   }
 
-  // emulator is optional — only the sidebar's list/boot needs it. Warn, continue.
   if (!hasEmulator()) {
     log.warn("SDK `emulator` not found — the sidebar can't list or boot AVDs.");
     log.warn('  Set ANDROID_HOME (e.g. ~/Library/Android/sdk) or add the emulator dir to PATH.');
@@ -52,18 +44,12 @@ function buildAsset(label: string, cmd: string, args: string[]): void {
   if (r.status !== 0) fail(`${label} build failed`, `try it manually: ${cmd} ${args.join(' ')}`);
 }
 
-// Resolve @tailwindcss/cli's JS entry so we can run it under the *current* runtime
-// (process.execPath — node or bun) rather than a hardcoded `npx`/`bunx`.
 function tailwindCli(): string {
   const pkgPath = createRequire(import.meta.url).resolve('@tailwindcss/cli/package.json');
   const bin = JSON.parse(readFileSync(pkgPath, 'utf8')).bin as string | Record<string, string>;
   return join(dirname(pkgPath), typeof bin === 'string' ? bin : bin.tailwindcss!);
 }
 
-// Build the browser assets on first run so the server works with no separate
-// build step (mirrors `npx serve-sim`'s one-command UX). Both build under the
-// current runtime — no bun (or node) hardcoded. The published package ships them
-// prebuilt, so this only runs from an unbuilt source checkout.
 export function ensureAssetsBuilt(): void {
   if (!existsSync(join(config.PUBLIC, 'app.css'))) {
     buildAsset('styles', process.execPath, [
@@ -80,8 +66,6 @@ export function ensureAssetsBuilt(): void {
   }
 }
 
-// If a target emulator was named but isn't running, boot it when it's a known
-// AVD — the client streams it automatically once it comes online.
 export function bootTargetIfNeeded(): void {
   if (!config.TARGET || targetSerial()) return; // no target, or already running
   const avd = listAvds().find((n) => n.toLowerCase() === config.TARGET.toLowerCase());

@@ -24,16 +24,10 @@ const layout = tv({
   },
   variants: {
     open: { true: { drawer: 'translate-x-0' }, false: { drawer: '-translate-x-full' } },
-    // View-only sessions hide the sidebar, so the grid column isn't reserved.
     sidebar: { true: { root: 'md:grid md:grid-cols-[240px_1fr]' } },
   },
 });
 
-// Give up the "booting…" spinner if an AVD hasn't come online in this long — a
-// boot can stall or crash silently (leaving only a crash handler), and the user
-// shouldn't be stranded on a spinner. Well past a normal cold boot (~20–60 s), so
-// a slow-but-fine boot isn't cut off; polling continues either way, so one that
-// eventually lands still shows up in the sidebar.
 const BOOT_GIVE_UP_MS = 120_000;
 
 export function App() {
@@ -44,20 +38,15 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
   const [stopping, setStopping] = useState<Set<string>>(new Set());
-  // When each shutdown started, so a transient adb hiccup during `emu kill` can't
-  // clear "shutting down" before the emulator is really gone (see the poll below).
+
   const stoppingSince = useRef<Map<string, number>>(new Map());
-  // AVD the user just booted: stream it automatically once it comes up, so booting
-  // from the sidebar (headless especially) doesn't strand them on a "Stream" button.
+
   const autoStream = useRef<string | null>(null);
-  // When each boot started, so a stalled/crashed boot can be timed out (see poll).
   const bootingSince = useRef<Map<string, number>>(new Map());
   const [notice, setNotice] = useState<NoticeData | null>(null);
 
   useKeyboard(send, controllable);
 
-  // Reflect the device in the tab title only while it's actually streaming; idle,
-  // connecting, and disconnected all fall back to the plain app name.
   useEffect(() => {
     const name = live ? (avds.find((a) => a.serial === serial)?.name ?? serial) : null;
     document.title = name ? `● ${name} · streaming` : 'stream-droid';
@@ -84,9 +73,6 @@ export function App() {
     [headless],
   );
 
-  // Kill an emulator. Mark it "shutting down" first so its sidebar row doesn't flash
-  // "Stream" — the device stays running (and streamable) until adb-kill propagates
-  // and the next poll drops it; the poll clears `stopping` once it's gone.
   const killDevice = async (dev: string, name: string): Promise<void> => {
     setNotice(null);
     stoppingSince.current.set(name, Date.now());
@@ -105,8 +91,6 @@ export function App() {
     }
   };
 
-  // Close the streamed device: a headless emulator (no window) is shut down
-  // entirely; a windowed one just detaches (it keeps running, re-streamable).
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
     const active = avds.find((a) => a.serial === serial);
@@ -117,16 +101,12 @@ export function App() {
     }
   };
 
-  // Explicit full shutdown (adb emu kill) regardless of headless — the ⏻ on a
-  // windowed row, whose Stop only detaches.
   const shutdownActive = async (): Promise<void> => {
     if (!serial) return;
     const active = avds.find((a) => a.serial === serial);
     await killDevice(serial, active?.name ?? serial);
   };
 
-  // Slow the poll once a stream is live and nothing's booting; the WS reports
-  // disconnects, so there's no need to hit adb every 3 s.
   const settled = live && booting.size === 0;
   useEffect(() => {
     let alive = true;
@@ -135,15 +115,11 @@ export function App() {
         const st = await fetchState();
         if (!alive) return;
         setAvds(st.avds);
-        // Clear "booting" when the emulator comes online — or give up after a
-        // timeout so a stalled/crashed boot doesn't spin forever. Either way we keep
-        // polling, so a slow boot that eventually lands still appears in the sidebar.
         const nowMs = Date.now();
         const pending = [...bootingSince.current.keys()];
         const statusOf = (n: string): AvdStatus | undefined => st.avds.find((a) => a.name === n);
         const online = pending.filter((n) => statusOf(n)?.running);
-        // The emulator process exited early with a reason (bad skin, missing image,
-        // panic…) — fail fast instead of waiting out the 2-min timeout.
+
         const failed = pending.filter((n) => !online.includes(n) && statusOf(n)?.bootError);
         const timedOut = pending.filter(
           (n) =>
@@ -198,11 +174,7 @@ export function App() {
               : undefined,
           });
         }
-        // Clear "shutting down" once the emulator has really stopped. During
-        // `emu kill` the emulator's adb console flakes, so it can momentarily
-        // report not-running and then running again — clearing on that first blip
-        // would flash the "Stream" button. Hold for a short floor so a running
-        // flicker can't clear it early; by then the kill has settled.
+
         setStopping((s) => {
           if (s.size === 0) return s;
           const now = Date.now();
@@ -215,13 +187,9 @@ export function App() {
           }
           return n.size === s.size ? s : n;
         });
-        // The streamed device vanished (emulator closed) — tear the stream down so
-        // the UI shows "disconnected" instead of a frozen frame, without a reload.
+
         if (serial && !st.devices.some((d) => d.serial === serial)) disconnect();
-        // Auto-stream a device the user just booted the moment it comes up — even
-        // if a stale serial from an earlier session is still around — so booting
-        // from the sidebar doesn't leave them on a "Stream" button to click again.
-        // Otherwise, pick up an already-running device when nothing's streaming yet.
+
         const wanted = autoStream.current;
         const booted = wanted && st.avds.find((a) => a.name === wanted && a.running && a.serial);
         const t = st.target?.toLowerCase();
@@ -247,8 +215,6 @@ export function App() {
     };
   }, [connect, disconnect, serial, settled, startBoot]);
 
-  // Actionable idle empty state: offer a one-click boot of the first stopped AVD,
-  // reflect an in-progress boot, and guide when there are no AVDs at all.
   const busy = booting.size > 0;
   const bootingName = [...booting][0];
   const startable = avds.find((a) => !a.running && !booting.has(a.name));
@@ -273,9 +239,6 @@ export function App() {
   const s = layout({ open: menuOpen, sidebar: controllable });
   return (
     <div className={s.root()}>
-      {/* View-only sessions (a shared tunnel link without the control token) show
-          only the preview — the sidebar and its ☰ toggle are hidden, since booting
-          or switching devices is control the viewer doesn't have. */}
       {controllable && (
         <header className={s.topbar()}>
           <button className={s.burger()} aria-label="Open menu" onClick={() => setMenuOpen(true)}>
@@ -311,8 +274,6 @@ export function App() {
       )}
 
       <main className={s.main()}>
-        {/* The interaction hint + nav bar only make sense with a live device to
-            drive — hide them while idle/connecting/disconnected. */}
         {controllable && live && <div className={s.hint()}>click = tap · drag = swipe · type = keys</div>}
         <Screen
           videoRef={videoRef}
@@ -326,8 +287,6 @@ export function App() {
           onControl={send}
         />
         {controllable && live && <NavBar onKey={(key) => send({ type: 'key', key })} />}
-        {/* Status line: serial · WxH · codec when live, connecting/disconnected notes
-            otherwise. Idle is covered by the empty state, so skip the redundant line. */}
         {state !== 'idle' && (
           <div className={s.status()}>
             {live && <LiveDot />}

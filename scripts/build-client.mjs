@@ -1,14 +1,4 @@
 #!/usr/bin/env node
-// Bundle the React client to public/client.js with esbuild — runs under node or
-// bun, so building the tool never requires a specific runtime. (Replaces the
-// earlier `bun build`.)
-//
-// jmuxer ships only a minified UMD (`module.exports = factory(require('stream'))`)
-// with no ESM/default that esbuild can extract — bun's bundler papered over this,
-// esbuild can't. The plugin below wraps jmuxer's file with CJS locals so its UMD
-// runs and we re-export `module.exports` as the default. `require('stream')` is
-// stubbed to undefined: jmuxer only touches `stream` inside `createStream()`,
-// which this app never calls (it uses `feed`/`destroy`).
 
 import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';

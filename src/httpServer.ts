@@ -1,5 +1,3 @@
-// HTTP server: serves the built client assets and the small emulator/semantic API.
-
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -90,8 +88,6 @@ export function createHttpServer(): http.Server {
           json(res, 500, { ok: false, error: (e as Error).message });
         }
       })
-      // Health check: hardware-accel availability (global bootability) + tooling +
-      // per-running-device framework readiness. Used by the emulators skill `health`.
       .with({ path: '/api/health' }, () => {
         const devices = listDevices().map((d) => ({
           serial: d.serial,
@@ -100,8 +96,6 @@ export function createHttpServer(): http.Server {
         }));
         json(res, 200, { accel: accelStatus(), adb: hasAdb(), emulator: hasEmulator(), devices });
       })
-      // Shut down a running emulator (control-gated, like /api/start). Used by the
-      // UI to close a headless emulator entirely when you're done streaming it.
       .with({ path: '/api/stop', method: 'POST' }, async () => {
         if (!isAuthorized(url)) {
           json(res, 403, { ok: false, error: 'view-only session' });
@@ -109,9 +103,7 @@ export function createHttpServer(): http.Server {
         }
         try {
           const { serial: reqSerial } = JSON.parse(await readBody(req)) as { serial?: string };
-          // Accept an adb serial OR an AVD name — resolveSerial echoes the value
-          // verbatim, so a bare name would make `adb -s <name> emu kill` fail. Map
-          // it to a running serial here (empty request → the first running device).
+
           const devs = listDevices();
           const want = (reqSerial ?? '').toLowerCase();
           const serial = want

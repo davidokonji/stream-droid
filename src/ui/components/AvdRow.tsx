@@ -1,4 +1,5 @@
 import { tv } from 'tailwind-variants';
+import { match } from 'ts-pattern';
 import type { AvdStatus } from '../types';
 import { Button } from './Button';
 import { StartButton } from './StartButton';
@@ -25,19 +26,19 @@ interface Props {
   active: boolean;
   streaming: boolean;
   booting: boolean;
-  stopping: boolean; // being shut down — show "shutting down…" until it's gone
-  // A boot is in progress somewhere, so conflicting actions (a second boot, or
-  // starting a new stream) are disabled until it clears. An already-live stream
-  // is left alone.
+  stopping: boolean;
   busy: boolean;
-  // This AVD was booted headless — its "close" shuts the emulator down entirely
-  // (no window), vs. just detaching the stream from a windowed one.
   streamingHeadless: boolean;
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
   onCloseDevice: () => void;
   onShutdownDevice: () => void;
 }
+
+// The single visual state a row is in — precedence runs top to bottom (a device
+// being shut down beats "running", a running-but-not-booted one shows "starting",
+// etc.). Both the trailing control and the status dot are derived from it.
+type Phase = 'stopping' | 'live' | 'stream' | 'starting' | 'booting' | 'idle';
 
 export function AvdRow({
   avd,
@@ -53,20 +54,36 @@ export function AvdRow({
   onShutdownDevice,
 }: Props) {
   const s = row({ active });
-  const trailing = stopping ? (
-    <span className={s.stopping()}>
-      <span className={s.stopSpinner()} />
-      shutting down…
-    </span>
-  ) : avd.running && avd.serial ? (
-    // Online to adb but the framework isn't up yet — streaming it would just wait,
-    // so show a starting indicator instead of a Stream button until it's ready.
-    !streaming && avd.booted === false ? (
+
+  const phase = match({
+    stopping,
+    streaming,
+    booting,
+    running: avd.running && avd.serial !== null,
+    booted: avd.booted,
+  })
+    .returnType<Phase>()
+    .with({ stopping: true }, () => 'stopping')
+    .with({ running: true, streaming: true }, () => 'live')
+    .with({ running: true, booted: false }, () => 'starting') // online to adb, framework not up yet
+    .with({ running: true }, () => 'stream')
+    .with({ booting: true }, () => 'booting')
+    .otherwise(() => 'idle');
+
+  const trailing = match(phase)
+    .with('stopping', () => (
+      <span className={s.stopping()}>
+        <span className={s.stopSpinner()} />
+        shutting down…
+      </span>
+    ))
+    .with('starting', () => (
       <span className={s.booting()}>
         <span className={s.spinner()} />
         starting…
       </span>
-    ) : streaming ? (
+    ))
+    .with('live', () => (
       <span className={s.live()}>
         <LiveDot />
         <Button
@@ -90,24 +107,30 @@ export function AvdRow({
           </Button>
         )}
       </span>
-    ) : (
+    ))
+    .with('stream', () => (
       <Button disabled={busy} onClick={() => onStream(avd.serial!)}>
         Stream
       </Button>
-    )
-  ) : booting ? (
-    <span className={s.booting()}>
-      <span className={s.spinner()} />
-      booting…
-    </span>
-  ) : (
-    <StartButton disabled={busy} onStart={() => onStart(avd.name)} />
-  );
+    ))
+    .with('booting', () => (
+      <span className={s.booting()}>
+        <span className={s.spinner()} />
+        booting…
+      </span>
+    ))
+    .with('idle', () => <StartButton disabled={busy} onStart={() => onStart(avd.name)} />)
+    .exhaustive();
+
+  const dot = match(phase)
+    .with('live', 'stream', 'stopping', () => '🟢') // up and running
+    .with('starting', 'booting', () => '🟡') // coming up
+    .with('idle', () => '⚪')
+    .exhaustive();
+
   return (
     <div className={s.root()}>
-      <span className={s.dot()}>
-        {avd.running && avd.booted !== false ? '🟢' : booting || avd.running ? '🟡' : '⚪'}
-      </span>
+      <span className={s.dot()}>{dot}</span>
       <span className={s.name()}>{avd.name}</span>
       {trailing}
     </div>

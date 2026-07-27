@@ -1,6 +1,3 @@
-// WebSocket server: per connection, resolve the device, stream frames out
-// (poster → live), and route incoming control messages to the chosen input path.
-
 import type http from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { match } from 'ts-pattern';
@@ -17,10 +14,6 @@ const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-// A freshly-booting emulator reports to adb (device online) long before its
-// Android framework is up, so `wm size` fails with "Can't find service: window".
-// That's not a real error — wait it out (the client sits in "connecting") rather
-// than failing the stream. Give up only after a generous window or a fatal error.
 const BOOT_WAIT_MS = 150_000; // ~2.5 min — cold emulator boots can be slow
 const stillBooting = (msg: string): boolean =>
   /can't find service|device (still )?offline|closed|no devices|not found|error: device|wm size/i.test(msg);
@@ -92,16 +85,13 @@ export function attachWebSocket(server: http.Server): void {
     ws.send(JSON.stringify({ type: 'meta', ...size, codec: config.CODEC, control: authorized }));
 
     const adbArgs = adbFor(serial);
-    // Instant preview: the H.264/MSE path is slow/flaky to start from an idle
-    // screen, so send one screenshot now as the <video> poster. (gRPC is instant.)
+
     if (config.CODEC === 'h264') sendPoster(ws, adbArgs);
 
-    // One capture pipe per client. Track throughput for the disconnect summary.
     const t0 = Date.now();
     let frames = 0;
     let bytes = 0;
-    // startCapture can throw synchronously (e.g. gRPC with no endpoint); catch it
-    // so a bad connection closes only this socket instead of crashing the server.
+
     let capture: CaptureHandle;
     try {
       capture = startCapture(
@@ -117,9 +107,6 @@ export function attachWebSocket(server: http.Server): void {
             log.debug(`${serial}: ${frames} frames · ${mb(bytes)}`);
         },
         () => {
-          // Capture ended for good (device closed / stream died). Close the socket
-          // so the client shows a disconnected state instead of a frozen frame; the
-          // reason is already logged in select.ts.
           if (ws.readyState === ws.OPEN) ws.close();
         },
       );
@@ -144,10 +131,6 @@ export function attachWebSocket(server: http.Server): void {
       }
       log.debug(`${serial} ◂ ${summarize(msg)}`);
 
-      // Semantic tap resolves an element's center from the hierarchy, then reuses
-      // the normal tap path. longPress/scroll are synthesized from a swipe (a
-      // hold-in-place, and a short drag opposite the scroll delta). Everything
-      // else is a raw control message.
       await match(msg)
         .with({ type: 'tapElement' }, async (m) => {
           try {

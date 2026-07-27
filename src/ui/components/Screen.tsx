@@ -33,7 +33,6 @@ const screen = tv({
   },
 });
 
-// Actionable empty-state content shown while idle (no device streaming).
 export interface EmptyState {
   title: string;
   hint: string;
@@ -115,9 +114,6 @@ export function Screen({
       )}
       {!controllable && <div className={badge({ class: 'right-2 text-amber-300' })}>👁 view-only</div>}
 
-      {/* The layer over the (empty or last-frame) video, driven by the connection
-          state: idle → a clean device-shaped empty state; connecting/disconnected/
-          error → an overlay on the last frame; live → nothing (the video shows). */}
       {match(state)
         .with('idle', () => (
           <div className={s.idle()}>

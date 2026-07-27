@@ -1,8 +1,5 @@
 import { tv } from 'tailwind-variants';
 
-// A dismissible feedback banner: a warning (amber) or error (red) message with an
-// optional inline action (e.g. Retry a boot that timed out). Replaces the old bare
-// amber text line so feedback reads as a deliberate, actionable surface.
 export interface NoticeData {
   message: string;
   tone?: 'warn' | 'error';

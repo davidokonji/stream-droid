@@ -14,9 +14,7 @@ interface Props {
   activeSerial: string | null;
   liveSerial: string | null;
   booting: Set<string>;
-  stopping: Set<string>; // AVDs being shut down — show "shutting down…" until gone
-  // Any AVD booting? Disables conflicting controls (other Start/Stream buttons
-  // and the headless toggle) until the boot resolves.
+  stopping: Set<string>;
   busy: boolean;
   headless: boolean;
   onHeadless: (v: boolean) => void;
