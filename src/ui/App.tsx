@@ -139,20 +139,44 @@ export function App() {
         // timeout so a stalled/crashed boot doesn't spin forever. Either way we keep
         // polling, so a slow boot that eventually lands still appears in the sidebar.
         const nowMs = Date.now();
-        const online = [...bootingSince.current.keys()].filter((n) =>
-          st.avds.some((a) => a.name === n && a.running),
+        const pending = [...bootingSince.current.keys()];
+        const statusOf = (n: string): AvdStatus | undefined => st.avds.find((a) => a.name === n);
+        const online = pending.filter((n) => statusOf(n)?.running);
+        // The emulator process exited early with a reason (bad skin, missing image,
+        // panic…) — fail fast instead of waiting out the 2-min timeout.
+        const failed = pending.filter((n) => !online.includes(n) && statusOf(n)?.bootError);
+        const timedOut = pending.filter(
+          (n) =>
+            !online.includes(n) &&
+            !failed.includes(n) &&
+            nowMs - (bootingSince.current.get(n) ?? nowMs) > BOOT_GIVE_UP_MS,
         );
-        const timedOut = [...bootingSince.current.keys()].filter(
-          (n) => !online.includes(n) && nowMs - (bootingSince.current.get(n) ?? nowMs) > BOOT_GIVE_UP_MS,
-        );
-        for (const n of [...online, ...timedOut]) bootingSince.current.delete(n);
-        if (online.length || timedOut.length) {
+        const cleared = [...online, ...failed, ...timedOut];
+        for (const n of cleared) bootingSince.current.delete(n);
+        if (cleared.length) {
           setBooting((b) => {
             if (b.size === 0) return b;
             const n = new Set(b);
-            for (const nm of online) n.delete(nm);
-            for (const nm of timedOut) n.delete(nm);
+            for (const nm of cleared) n.delete(nm);
             return n.size === b.size ? b : n;
+          });
+        }
+        if (failed.length) {
+          const one = failed.length === 1 ? failed[0]! : null;
+          const detail = failed.map((n) => `${n}: ${statusOf(n)?.bootError ?? 'unknown error'}`).join('; ');
+          if (autoStream.current && failed.includes(autoStream.current)) autoStream.current = null;
+          setNotice({
+            message: `Boot failed — ${detail}`,
+            tone: 'error',
+            retryLabel: one ? `Cold-boot ${one}` : undefined,
+            onRetry: one
+              ? () => {
+                  setNotice(null);
+                  void startBoot(one, { cold: true }).catch((e: unknown) =>
+                    setNotice({ message: (e as Error).message, tone: 'error' }),
+                  );
+                }
+              : undefined,
           });
         }
         if (timedOut.length) {

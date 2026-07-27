@@ -13,9 +13,11 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     comes online (~20-60 s) — it doesn't silently revert to Start. Once it's up
     the stream connects **automatically** (headless included), so you don't have
     to click **Stream** yourself.
-  - If a boot stalls or crashes, the spinner gives up after ~2 min and a notice
-    offers a one-click **Cold-boot** (skips a possibly-corrupt snapshot via
-    `-no-snapshot-load`). Polling continues, so a slow boot that eventually lands
+  - If the emulator process dies during boot, the failure is surfaced **right away**
+    with the actual reason (e.g. `unknown skin name '…'`) — no waiting. If it just
+    hangs, the spinner gives up after ~2 min. Either way the notice offers a
+    one-click **Cold-boot** (skips a possibly-corrupt snapshot via
+    `-no-snapshot-load`); polling continues, so a slow boot that eventually lands
     still shows up running in the sidebar.
   - A row that's online to adb but whose Android framework isn't up yet shows 🟡
     **starting…** (not a Stream button) until it's ready — 🟢 means booted and

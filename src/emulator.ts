@@ -6,7 +6,7 @@
 // Note: AVDs are launched with the SDK `emulator` binary, not `adb`. `adb` only
 // ever sees *running* devices; the `emulator` tool owns the AVD list and boot.
 
-import { execFile, execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -18,6 +18,9 @@ export interface AvdStatus {
   // Framework health when running: `device` in adb doesn't mean Android is up.
   // true = sys.boot_completed (ready), false = online but still starting, null = not running.
   booted: boolean | null;
+  // Why the last boot attempt exited early (e.g. "unknown skin name '…'"), or null.
+  // Lets a caller explain a crash-on-boot instead of just timing out; cleared on reboot.
+  bootError: string | null;
 }
 
 export interface DeviceInfo {
@@ -184,7 +187,10 @@ const lastActive = new Map<string, number>();
 export function avdStatuses(): AvdStatus[] {
   const running = listDevices();
   const now = Date.now();
-  for (const d of running) lastActive.set(d.avd, now);
+  for (const d of running) {
+    lastActive.set(d.avd, now);
+    bootErrors.delete(d.avd); // it's up — no longer a failed boot
+  }
   const bySerial = new Map(running.map((d) => [d.avd, d.serial] as const));
   const ps = running.length ? psHeadlessAvds() : new Set<string>();
   const booted = running.length ? bootedSerials(running) : new Map<string, boolean>();
@@ -201,12 +207,40 @@ export function avdStatuses(): AvdStatus[] {
       headless: bySerial.has(name) && (bootedHeadless.has(name) || ps.has(name)),
       // Framework health while running; null when stopped (unknowable without booting).
       booted: bySerial.has(name) ? (booted.get(bySerial.get(name)!) ?? false) : null,
+      // Why this AVD's last boot failed, if it did and it isn't running now.
+      bootError: bySerial.has(name) ? null : (bootErrors.get(name) ?? null),
     }))
     .toSorted((a, b) => {
       if (a.running !== b.running) return a.running ? -1 : 1; // running first
       const diff = (lastActive.get(b.name) ?? 0) - (lastActive.get(a.name) ?? 0);
       return diff || a.name.localeCompare(b.name); // most-recent, then stable alpha
     });
+}
+
+// Why each AVD's last boot exited early (its most telling log line). A healthy
+// emulator runs until killed, so an early exit means the boot failed — we capture
+// the reason (skin/system-image/panic errors) so the UI can show it rather than
+// timing out. Cleared when that AVD is booted again.
+const bootErrors = new Map<string, string>();
+// If the emulator process exits within this long of launch, treat it as a failed
+// boot; a later exit is just a normal shutdown/kill of a running emulator.
+const BOOT_FAIL_WINDOW_MS = 180_000;
+
+// The most telling line from an emulator's exit output — it logs failures as
+// `ERROR | <msg>` or `PANIC: <msg>`. Falls back to the exit code; '' = clean exit.
+function bootFailReason(log: string, code: number | null): string {
+  const line = log
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .find((l) => /^(ERROR\b|PANIC[:\s])/i.test(l));
+  if (line) {
+    return line
+      .replace(/^ERROR\s*\|?\s*/i, '')
+      .replace(/^PANIC:?\s*/i, 'panic: ')
+      .trim();
+  }
+  return code ? `emulator exited (code ${code})` : ''; // clean exit / killed → not a failure
 }
 
 // Boot an AVD. `headless` adds -no-window: no host GUI, adb-only — ideal for a
@@ -234,8 +268,24 @@ export function startEmulator(
     args.push('-no-window', '-no-audio');
     bootedHeadless.add(avd); // so "close" fully kills it even where `ps` is unavailable
   }
-  const child = execFile(bin, args, { windowsHide: true }, () => {
-    /* detached; ignore result */
+  bootErrors.delete(avd); // fresh attempt — drop any prior failure
+  const startedAt = Date.now();
+  const child = spawn(bin, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  // Keep only the tail of the startup output; on an early exit it holds the reason.
+  let tail = '';
+  const capture = (buf: Buffer): void => {
+    tail = `${tail}${buf}`.split('\n').slice(-12).join('\n');
+  };
+  child.stdout?.on('data', capture);
+  child.stderr?.on('data', capture);
+  child.on('error', () => {
+    /* spawn failure — bin was already validated above; nothing to capture */
+  });
+  child.on('exit', (code) => {
+    if (Date.now() - startedAt < BOOT_FAIL_WINDOW_MS) {
+      const reason = bootFailReason(tail, code);
+      if (reason) bootErrors.set(avd, reason);
+    }
   });
   child.unref();
   return { avd, pid: child.pid };

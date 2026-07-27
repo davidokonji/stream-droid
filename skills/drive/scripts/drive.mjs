@@ -163,7 +163,11 @@ async function main() {
       console.log(
         rows.length
           ? rows
-              .map((a) => `${a.running ? '🟢 running' : '⚪ stopped'}  ${a.name}${a.serial ? `  ${a.serial}` : ''}`)
+              .map((a) => {
+                const state = a.running ? '🟢 running' : a.bootError ? '⚠ failed ' : '⚪ stopped';
+                const tail = a.serial ? `  ${a.serial}` : a.bootError ? `  — ${a.bootError}` : '';
+                return `${state}  ${a.name}${tail}`;
+              })
               .join('\n')
           : 'no AVDs found',
       );

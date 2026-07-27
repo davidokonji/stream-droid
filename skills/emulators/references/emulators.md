@@ -19,8 +19,10 @@ node scripts/drive.mjs avds
 # ⚪ stopped  Pixel_7_API_34
 ```
 
-Reads `GET /api/state`, which returns `avds` (name/running/serial), `devices`
-(serial/avd), and the pinned `target`.
+Reads `GET /api/state`, which returns `avds` (name/running/serial/booted/bootError),
+`devices` (serial/avd), and the pinned `target`. An AVD whose last boot crashed
+shows as `⚠ failed  <name>  — <reason>` (the emulator's own error, e.g. `unknown
+skin name '…'`), so you don't have to guess why it never came online.
 
 ## Boot
 
@@ -45,6 +47,12 @@ snapshot is corrupt the emulator **crashes on every boot** and never reaches adb
 `-no-snapshot-load` so it skips the snapshot and does a full boot (slower, ~1–2 min)
 — which recovers it. In the browser, a boot that times out shows a **Cold-boot**
 button that does the same.
+
+Not every failure is a snapshot, though: the server watches the emulator process
+and, if it exits during boot, records **why** (its `ERROR`/`PANIC` line) as the
+AVD's `bootError`. So a broken config — e.g. `unknown skin name 'Galaxy_A55_5G'` —
+is reported outright (in `avds` and the browser) rather than looking like a slow
+boot; cold boot won't fix that, the AVD config will.
 
 ## Health
 
