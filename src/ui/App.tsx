@@ -7,10 +7,7 @@ import { Sidebar } from './components/Sidebar';
 import { Screen } from './components/Screen';
 import { NavBar } from './components/NavBar';
 import { LiveDot } from './components/LiveDot';
-import type { AvdStatus, ConnState } from './types';
-
-// Browser-tab prefix per stream state, so the title says what's being streamed.
-const TITLE_MARK: Partial<Record<ConnState, string>> = { live: '● ', disconnected: '⚠ ' };
+import type { AvdStatus } from './types';
 
 const layout = tv({
   slots: {
@@ -43,11 +40,12 @@ export function App() {
 
   useKeyboard(send, controllable);
 
-  // Reflect what's streaming in the browser-tab title (● live · ⚠ disconnected).
+  // Reflect the device in the tab title only while it's actually streaming; idle,
+  // connecting, and disconnected all fall back to the plain app name.
   useEffect(() => {
-    const name = avds.find((a) => a.serial === serial)?.name ?? serial;
-    document.title = name ? `${TITLE_MARK[state] ?? ''}${name} · streaming` : 'No device streaming';
-  }, [serial, state, avds]);
+    const name = live ? (avds.find((a) => a.serial === serial)?.name ?? serial) : null;
+    document.title = name ? `● ${name} · streaming` : 'stream-droid';
+  }, [serial, live, avds]);
 
   const startBoot = async (avd: string): Promise<void> => {
     setBooting((b) => new Set(b).add(avd));
