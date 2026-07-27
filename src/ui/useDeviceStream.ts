@@ -110,8 +110,12 @@ export function useDeviceStream(): DeviceStream {
       setStatus(`connecting to ${s}…`);
 
       const k = controlToken();
+      // Match the page's scheme: a tunneled session is served over HTTPS, and
+      // browsers block an insecure ws:// socket from an https:// page (mixed
+      // content) — new WebSocket() throws, so the stream would hang on "connecting".
+      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(
-        `ws://${location.host}/?serial=${encodeURIComponent(s)}${k ? `&k=${encodeURIComponent(k)}` : ''}`,
+        `${wsProto}//${location.host}/?serial=${encodeURIComponent(s)}${k ? `&k=${encodeURIComponent(k)}` : ''}`,
       );
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
