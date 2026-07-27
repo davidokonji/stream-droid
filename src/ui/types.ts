@@ -3,6 +3,7 @@ export interface AvdStatus {
   running: boolean;
   serial: string | null;
   headless: boolean; // running windowless — its "close" fully kills the emulator
+  booted: boolean | null; // running & framework up; false = still starting; null = stopped
 }
 export interface DeviceInfo {
   serial: string;

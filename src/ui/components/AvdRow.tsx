@@ -59,7 +59,14 @@ export function AvdRow({
       shutting down…
     </span>
   ) : avd.running && avd.serial ? (
-    streaming ? (
+    // Online to adb but the framework isn't up yet — streaming it would just wait,
+    // so show a starting indicator instead of a Stream button until it's ready.
+    !streaming && avd.booted === false ? (
+      <span className={s.booting()}>
+        <span className={s.spinner()} />
+        starting…
+      </span>
+    ) : streaming ? (
       <span className={s.live()}>
         <LiveDot />
         <Button
@@ -98,7 +105,9 @@ export function AvdRow({
   );
   return (
     <div className={s.root()}>
-      <span className={s.dot()}>{avd.running ? '🟢' : booting ? '🟡' : '⚪'}</span>
+      <span className={s.dot()}>
+        {avd.running && avd.booted !== false ? '🟢' : booting || avd.running ? '🟡' : '⚪'}
+      </span>
       <span className={s.name()}>{avd.name}</span>
       {trailing}
     </div>

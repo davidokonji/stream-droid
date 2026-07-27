@@ -4,7 +4,7 @@ description: Use when you need an Android emulator running to build/test a mobil
 license: MIT
 compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Goes through the drive skill's helper (node or bun ≥ 18).
 metadata:
-  version: '0.4.3'
+  version: '0.4.4'
 ---
 
 # emulators
@@ -44,12 +44,20 @@ server's API, so you don't run the CLI or the server yourself:
 D="$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs"   # clone: skills/drive/scripts/drive.mjs
 node "$D" avds                     # list every AVD: 🟢 running / ⚪ stopped (+ serial)
 node "$D" boot Pixel_9 --headless  # boot an AVD (omit --headless for a windowed one)
+node "$D" boot Pixel_9 --cold      # if it won't boot: skip its snapshot, full-boot it
+node "$D" health                   # accel/adb/emulator checks + per-device readiness
 node "$D" kill Pixel_9             # shut a running emulator down (serial or AVD name)
 ```
 
 - **`avds`** answers "what's running?" from the live server state — no CLI needed.
 - **`boot`** starts the AVD; it takes ~20–60 s to come online. Poll `avds` (or the
   drive skill's `devices`) until it shows 🟢, then drive it with **`/stream-droid:drive`**.
+- **`health`** reports whether the machine can boot AVDs at all (hardware accel),
+  that `adb`/`emulator` are present, and whether each running device's framework is
+  up (`✓ ready` vs `⏳ starting`).
+- **An AVD that never comes online** usually has a corrupt saved snapshot. Re-boot it
+  with **`--cold`** (`-no-snapshot-load`) to skip the snapshot and full-boot it — the
+  browser offers the same as a one-click **Cold-boot** on its boot-timeout notice.
 - **`kill`** uses `adb emu kill` under the hood; physical devices can't be shut down
   this way.
 
@@ -64,4 +72,4 @@ node "$D" kill Pixel_9             # shut a running emulator down (serial or AVD
 
 | File | Covers |
 |---|---|
-| [references/emulators.md](references/emulators.md) | list / boot (headless) / kill, device targeting, auto-stream order |
+| [references/emulators.md](references/emulators.md) | list / boot (headless, cold) / kill / health, device targeting, auto-stream order |

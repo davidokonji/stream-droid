@@ -7,12 +7,12 @@ export async function fetchState(): Promise<State> {
   return res.json() as Promise<State>;
 }
 
-export async function startAvd(avd: string, headless: boolean): Promise<void> {
+export async function startAvd(avd: string, headless: boolean, cold = false): Promise<void> {
   const k = controlToken();
   const res = await fetch(`/api/start${k ? `?k=${encodeURIComponent(k)}` : ''}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ avd, headless }),
+    body: JSON.stringify({ avd, headless, cold }),
   });
   const out = (await res.json()) as { ok: boolean; error?: string };
   if (!out.ok) throw new Error(out.error ?? 'failed to start emulator');

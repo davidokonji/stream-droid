@@ -15,6 +15,9 @@ export interface AvdStatus {
   running: boolean;
   serial: string | null; // adb serial when running, e.g. "emulator-5554"
   headless: boolean; // running windowless (-no-window) — its "close" fully kills it
+  // Framework health when running: `device` in adb doesn't mean Android is up.
+  // true = sys.boot_completed (ready), false = online but still starting, null = not running.
+  booted: boolean | null;
 }
 
 export interface DeviceInfo {
@@ -47,6 +50,49 @@ export function hasEmulator(): boolean {
 // True when `adb` is on PATH (gates everything).
 export function hasAdb(): boolean {
   return spawnSync('adb', ['version'], { stdio: 'ignore' }).error === undefined;
+}
+
+// `emulator -accel-check` — is hardware acceleration usable? A global signal: if
+// this fails, no AVD will boot healthily. Returns a one-line reason either way.
+export function accelStatus(): { ok: boolean; detail: string } {
+  const bin = emulatorBin();
+  if (!bin) return { ok: false, detail: 'SDK `emulator` not found' };
+  const r = spawnSync(bin, ['-accel-check'], { encoding: 'utf8' });
+  // Output is `accel:` / <code> / <human description> / `accel` — pick the
+  // description line (skip the `accel:`/`accel` markers and the bare status code).
+  const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const detail =
+    lines.find((l) => !/^accel:?$/i.test(l) && !/^-?\d+$/.test(l)) ??
+    (r.status === 0 ? 'accel available' : 'accel unavailable');
+  return { ok: r.status === 0, detail };
+}
+
+// A running device's framework health: `device` in adb precedes Android being up,
+// so check sys.boot_completed. true = ready to stream, false = online but starting.
+export function deviceBooted(serial: string): boolean {
+  try {
+    const out = execFileSync('adb', ['-s', serial, 'shell', 'getprop', 'sys.boot_completed'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return out === '1';
+  } catch {
+    return false; // console/framework not reachable yet
+  }
+}
+
+// Cached boot-completed per running serial — /api/state is polled every 3 s, so a
+// getprop per device per request would add up. Short TTL like the headless scan.
+let bootCache: { at: number; map: Map<string, boolean> } = { at: 0, map: new Map() };
+function bootedSerials(running: DeviceInfo[]): Map<string, boolean> {
+  if (Date.now() - bootCache.at < 2000) return bootCache.map;
+  const map = new Map<string, boolean>();
+  for (const d of running) map.set(d.serial, deviceBooted(d.serial));
+  bootCache = { at: Date.now(), map };
+  return map;
 }
 
 const adb = (...rest: string[]): string => execFileSync('adb', rest, { encoding: 'utf8' }).trim();
@@ -141,6 +187,7 @@ export function avdStatuses(): AvdStatus[] {
   for (const d of running) lastActive.set(d.avd, now);
   const bySerial = new Map(running.map((d) => [d.avd, d.serial] as const));
   const ps = running.length ? psHeadlessAvds() : new Set<string>();
+  const booted = running.length ? bootedSerials(running) : new Map<string, boolean>();
   const names = new Set(listAvds());
   // Include any running AVD that -list-avds didn't report (e.g. ad-hoc).
   for (const d of running) names.add(d.avd);
@@ -152,6 +199,8 @@ export function avdStatuses(): AvdStatus[] {
       // Windowless if either signal says so — process scan (cross-session, unix) or
       // this server's own headless boots (works everywhere, incl. Windows).
       headless: bySerial.has(name) && (bootedHeadless.has(name) || ps.has(name)),
+      // Framework health while running; null when stopped (unknowable without booting).
+      booted: bySerial.has(name) ? (booted.get(bySerial.get(name)!) ?? false) : null,
     }))
     .toSorted((a, b) => {
       if (a.running !== b.running) return a.running ? -1 : 1; // running first
@@ -163,7 +212,10 @@ export function avdStatuses(): AvdStatus[] {
 // Boot an AVD. `headless` adds -no-window: no host GUI, adb-only — ideal for a
 // machine that just streams to the browser. Detached so it outlives... nothing,
 // but doesn't block the request; boot takes ~20–60s before adb sees it.
-export function startEmulator(avd: string, opts: { headless?: boolean } = {}): { avd: string; pid?: number } {
+export function startEmulator(
+  avd: string,
+  opts: { headless?: boolean; cold?: boolean } = {},
+): { avd: string; pid?: number } {
   const bin = emulatorBin();
   if (!bin) {
     throw new Error(
@@ -175,6 +227,9 @@ export function startEmulator(avd: string, opts: { headless?: boolean } = {}): {
     throw new Error(`unknown AVD "${avd}". Known AVDs: ${listAvds().join(', ') || '(none)'}`);
   }
   const args = ['-avd', avd, '-no-boot-anim', '-no-snapshot-save'];
+  // Cold boot: skip loading the saved snapshot, which recovers an AVD that crashes
+  // on every boot from a corrupt `default_boot` snapshot (slower — a full boot).
+  if (opts.cold) args.push('-no-snapshot-load');
   if (opts.headless) {
     args.push('-no-window', '-no-audio');
     bootedHeadless.add(avd); // so "close" fully kills it even where `ps` is unavailable

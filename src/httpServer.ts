@@ -6,7 +6,16 @@ import { join } from 'node:path';
 import { match } from 'ts-pattern';
 import { config, isAuthorized } from './config.ts';
 import { adbFor, resolveSerial } from './adb.ts';
-import { avdStatuses, killEmulator, listDevices, startEmulator } from './emulator.ts';
+import {
+  accelStatus,
+  avdStatuses,
+  deviceBooted,
+  hasAdb,
+  hasEmulator,
+  killEmulator,
+  listDevices,
+  startEmulator,
+} from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
 
@@ -67,15 +76,29 @@ export function createHttpServer(): http.Server {
           return;
         }
         try {
-          const { avd, headless } = JSON.parse(await readBody(req)) as { avd?: string; headless?: boolean };
+          const { avd, headless, cold } = JSON.parse(await readBody(req)) as {
+            avd?: string;
+            headless?: boolean;
+            cold?: boolean; // skip the saved snapshot — recovers a crash-on-boot AVD
+          };
           if (!avd) {
             json(res, 400, { ok: false, error: 'avd required' });
             return;
           }
-          json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless }) });
+          json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless, cold: !!cold }) });
         } catch (e) {
           json(res, 500, { ok: false, error: (e as Error).message });
         }
+      })
+      // Health check: hardware-accel availability (global bootability) + tooling +
+      // per-running-device framework readiness. Used by the emulators skill `health`.
+      .with({ path: '/api/health' }, () => {
+        const devices = listDevices().map((d) => ({
+          serial: d.serial,
+          avd: d.avd,
+          booted: deviceBooted(d.serial),
+        }));
+        json(res, 200, { accel: accelStatus(), adb: hasAdb(), emulator: hasEmulator(), devices });
       })
       // Shut down a running emulator (control-gated, like /api/start). Used by the
       // UI to close a headless emulator entirely when you're done streaming it.

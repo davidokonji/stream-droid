@@ -33,6 +33,35 @@ runs `emulator -avd <name> -no-window -no-audio` — fully adb/stream-capable wi
 GUI on the host. Boot takes ~20–60 s; poll `avds` until it flips to 🟢. (You can
 also click **Start** on a ⚪ row in the browser sidebar.)
 
+### Cold boot (won't-start recovery)
+
+```bash
+node scripts/drive.mjs boot Pixel_9 --cold   # adds -no-snapshot-load
+```
+
+Boots take a fast path by loading the AVD's saved `default_boot` snapshot. If that
+snapshot is corrupt the emulator **crashes on every boot** and never reaches adb
+(only a crash handler survives). `--cold` sends `{ …, "cold": true }`, adding
+`-no-snapshot-load` so it skips the snapshot and does a full boot (slower, ~1–2 min)
+— which recovers it. In the browser, a boot that times out shows a **Cold-boot**
+button that does the same.
+
+## Health
+
+```bash
+node scripts/drive.mjs health
+# ✓ adb    ✓ emulator    ✓ accel — Hypervisor.Framework OS X Version 26.5
+# ✓ ready   emulator-5554  Pixel_9
+# ⏳ starting emulator-5556  Galaxy_Samsung_A55
+```
+
+Reads `GET /api/health`: `emulator -accel-check` (hardware acceleration — if this
+fails, no AVD will boot), `adb`/`emulator` presence, and per running device whether
+`sys.boot_completed` is set (`✓ ready` to stream vs `⏳ starting`). A device is
+`device` in `adb devices` before Android is actually up, so `ready` is the signal
+that it's streamable. The sidebar mirrors this: a running-but-not-ready row shows
+🟡 **starting…** instead of a Stream button.
+
 ## Kill
 
 ```bash

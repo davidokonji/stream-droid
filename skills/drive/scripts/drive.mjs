@@ -123,8 +123,10 @@ function help() {
 
   devices                     list running devices
   avds [grep]                 list AVDs with running/stopped state (via the server API)
-  boot <avd> [--headless]     boot an AVD (POST /api/start)
+  boot <avd> [--headless]     boot an AVD (POST /api/start); add --cold to skip a
+                              (possibly corrupt) saved snapshot and full-boot it
   kill <serial|avd>           shut a running emulator down (POST /api/stop)
+  health                      accel/adb/emulator checks + per-device boot readiness
   apps [grep]                 list installed packages + current foreground app
   launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
@@ -169,6 +171,7 @@ async function main() {
     }
     case 'boot': {
       const headless = rest.includes('--headless') || rest.includes('-d');
+      const cold = rest.includes('--cold');
       const avd = need(
         rest.find((a) => !a.startsWith('-')),
         'avd name',
@@ -176,11 +179,27 @@ async function main() {
       const r = await fetch(`${BASE}/api/start`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ avd, headless }),
+        body: JSON.stringify({ avd, headless, cold }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) die(`boot failed: ${j.error ?? r.status}`);
-      console.log(`booting ${avd}${headless ? ' (headless)' : ''}… (~20–60s to come online)`);
+      const how = [headless && 'headless', cold && 'cold'].filter(Boolean).join(', ');
+      console.log(`booting ${avd}${how ? ` (${how})` : ''}… (~20–60s to come online)`);
+      break;
+    }
+    case 'health': {
+      const r = await fetch(`${BASE}/api/health`).catch(() => null);
+      if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: node scripts/ensure-server.mjs`);
+      const h = await r.json();
+      const mark = (ok) => (ok ? '✓' : '✗');
+      console.log(`${mark(h.adb)} adb    ${mark(h.emulator)} emulator    ${mark(h.accel.ok)} accel — ${h.accel.detail}`);
+      if (h.devices.length) {
+        for (const d of h.devices) {
+          console.log(`${d.booted ? '✓ ready  ' : '⏳ starting'} ${d.serial}  ${d.avd}`);
+        }
+      } else {
+        console.log('(no running devices)');
+      }
       break;
     }
     case 'kill': {

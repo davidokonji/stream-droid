@@ -64,12 +64,12 @@ export function App() {
   }, [serial, live, avds]);
 
   const startBoot = useCallback(
-    async (avd: string): Promise<void> => {
+    async (avd: string, opts: { cold?: boolean } = {}): Promise<void> => {
       autoStream.current = avd; // stream it as soon as it finishes booting
       bootingSince.current.set(avd, Date.now());
       setBooting((b) => new Set(b).add(avd));
       try {
-        await startAvd(avd, headless);
+        await startAvd(avd, headless, opts.cold);
       } catch (e) {
         autoStream.current = null;
         bootingSince.current.delete(avd);
@@ -161,13 +161,13 @@ export function App() {
           const names = timedOut.join(', ');
           const one = timedOut.length === 1 ? timedOut[0]! : null;
           setNotice({
-            message: `${names} didn't come online — it may have stalled or crashed. It'll still appear here if it finishes booting.`,
+            message: `${names} didn't come online in time. A common cause is a corrupt saved snapshot — a cold boot skips it (slower, but usually recovers it).`,
             tone: 'warn',
-            retryLabel: one ? `Retry ${one}` : undefined,
+            retryLabel: one ? `Cold-boot ${one}` : undefined,
             onRetry: one
               ? () => {
                   setNotice(null);
-                  void startBoot(one).catch((e: unknown) =>
+                  void startBoot(one, { cold: true }).catch((e: unknown) =>
                     setNotice({ message: (e as Error).message, tone: 'error' }),
                   );
                 }

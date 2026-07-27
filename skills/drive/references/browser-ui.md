@@ -14,8 +14,12 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     the stream connects **automatically** (headless included), so you don't have
     to click **Stream** yourself.
   - If a boot stalls or crashes, the spinner gives up after ~2 min and a notice
-    explains it's taking too long (**Start** to retry). Polling continues, so a
-    slow boot that eventually lands still shows up running in the sidebar.
+    offers a one-click **Cold-boot** (skips a possibly-corrupt snapshot via
+    `-no-snapshot-load`). Polling continues, so a slow boot that eventually lands
+    still shows up running in the sidebar.
+  - A row that's online to adb but whose Android framework isn't up yet shows 🟡
+    **starting…** (not a Stream button) until it's ready — 🟢 means booted and
+    streamable.
   - The streaming row shows **● LIVE** with a **Close/Stop** button. If the
     emulator is running **headless** (no window), it reads **Close** and shuts it
     down entirely (`adb emu kill`) — there's no window to fall back to. Whether
