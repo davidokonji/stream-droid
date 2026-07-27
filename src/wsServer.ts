@@ -15,6 +15,36 @@ import type { CaptureHandle, CaptureMeta } from './capture/types.ts';
 const log = logger('ws');
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+// A freshly-booting emulator reports to adb (device online) long before its
+// Android framework is up, so `wm size` fails with "Can't find service: window".
+// That's not a real error — wait it out (the client sits in "connecting") rather
+// than failing the stream. Give up only after a generous window or a fatal error.
+const BOOT_WAIT_MS = 150_000; // ~2.5 min — cold emulator boots can be slow
+const stillBooting = (msg: string): boolean =>
+  /can't find service|device (still )?offline|closed|no devices|not found|error: device|wm size/i.test(msg);
+
+async function awaitDeviceSize(ws: WebSocket, serial: string): Promise<CaptureMeta | null> {
+  const deadline = Date.now() + BOOT_WAIT_MS;
+  let waited = false;
+  for (;;) {
+    try {
+      return deviceSize(serial);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (!stillBooting(msg) || Date.now() > deadline || ws.readyState !== ws.OPEN) {
+        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: 'error', message: msg }));
+        return null;
+      }
+      if (!waited) {
+        log.info(`${serial}: framework still booting — waiting…`);
+        waited = true;
+      }
+      await sleep(2000);
+    }
+  }
+}
 
 // A one-line summary of a control message for debug logs.
 function summarize(msg: Incoming): string {
@@ -38,7 +68,7 @@ function summarize(msg: Incoming): string {
 export function attachWebSocket(server: http.Server): void {
   const wss = new WebSocketServer({ server });
 
-  wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
+  wss.on('connection', async (ws: WebSocket, req: http.IncomingMessage) => {
     const addr = req.socket.remoteAddress ?? '?';
     const serial = resolveSerial(new URL(req.url ?? '/', 'http://localhost').searchParams.get('serial'));
     if (!serial) {
@@ -49,14 +79,9 @@ export function attachWebSocket(server: http.Server): void {
       return;
     }
 
-    let size: CaptureMeta;
-    try {
-      size = deviceSize(serial);
-    } catch (e) {
-      log.warn(`${serial}: ${(e as Error).message}`);
-      ws.send(JSON.stringify({ type: 'error', message: (e as Error).message }));
-      return;
-    }
+    // Waits out a still-booting emulator instead of erroring; null = gave up / closed.
+    const size = await awaitDeviceSize(ws, serial);
+    if (!size) return;
 
     // View-only unless the connection presents the control token (tunnel mode).
     const authorized = isAuthorized(req.url);

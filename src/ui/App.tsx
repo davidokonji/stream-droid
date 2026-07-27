@@ -78,6 +78,20 @@ export function App() {
     }
   };
 
+  // Fully shut the streamed emulator down (adb emu kill) regardless of headless —
+  // for windowed emulators, whose "Stop" only detaches.
+  const shutdownActive = async (): Promise<void> => {
+    if (!serial) return;
+    setNotice(null);
+    const active = avds.find((a) => a.serial === serial);
+    disconnect();
+    try {
+      await stopEmulator(serial);
+    } catch (e) {
+      setNotice(`couldn't stop ${active?.name ?? serial}: ${(e as Error).message}`);
+    }
+  };
+
   // Slow the poll once a stream is live and nothing's booting; the WS reports
   // disconnects, so there's no need to hit adb every 3 s.
   const settled = live && booting.size === 0;
@@ -168,6 +182,7 @@ export function App() {
             onStream={connect}
             onStart={startBoot}
             onCloseDevice={closeActive}
+            onShutdownDevice={shutdownActive}
             onClose={() => setMenuOpen(false)}
           />
         </div>

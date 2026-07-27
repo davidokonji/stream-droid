@@ -22,6 +22,7 @@ interface Props {
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
   onCloseDevice: () => void;
+  onShutdownDevice: () => void;
   onClose: () => void;
 }
 
@@ -36,6 +37,7 @@ export function Sidebar({
   onStream,
   onStart,
   onCloseDevice,
+  onShutdownDevice,
   onClose,
 }: Props) {
   return (
@@ -73,6 +75,7 @@ export function Sidebar({
             }}
             onStart={onStart}
             onCloseDevice={onCloseDevice}
+            onShutdownDevice={onShutdownDevice}
           />
         ))}
       </div>

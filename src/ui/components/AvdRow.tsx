@@ -33,6 +33,7 @@ interface Props {
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
   onCloseDevice: () => void;
+  onShutdownDevice: () => void;
 }
 
 export function AvdRow({
@@ -45,6 +46,7 @@ export function AvdRow({
   onStream,
   onStart,
   onCloseDevice,
+  onShutdownDevice,
 }: Props) {
   const s = row({ active });
   const trailing =
@@ -62,6 +64,16 @@ export function AvdRow({
           >
             {streamingHeadless ? 'Close' : 'Stop'}
           </Button>
+          {/* Windowed emulators keep running on Stop; offer an explicit shutdown too. */}
+          {!streamingHeadless && (
+            <Button
+              onClick={onShutdownDevice}
+              title="Shut the emulator down"
+              className="px-2 text-neutral-400 hover:text-red-400"
+            >
+              ⏻
+            </Button>
+          )}
         </span>
       ) : (
         <Button disabled={busy} onClick={() => onStream(avd.serial!)}>

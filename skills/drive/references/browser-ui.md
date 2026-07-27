@@ -17,8 +17,9 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     it's headless is detected server-side from the emulator's process (`-no-window`),
     so it's correct even if you didn't boot it from this browser or the server
     restarted. A windowed emulator reads **Stop** and just detaches the stream; it
-    keeps running and can be re-streamed. (Re-selecting the already-live device is
-    a no-op — it doesn't restart the capture.)
+    keeps running and can be re-streamed — next to Stop, a **⏻** button shuts it
+    down entirely when you do want that. (Re-selecting the already-live device is a
+    no-op — it doesn't restart the capture.)
   - While any AVD is booting, the **other** controls are disabled to prevent
     conflicts — every other **Start**, the **Stream** action on running rows, and
     the **headless** toggle go non-interactive (dimmed, `not-allowed` cursor) and
@@ -52,9 +53,10 @@ On the device surface:
 - **Preview overlay** — when frames aren't flowing, the preview shows a state
   instead of a frozen/blank frame: a spinner while **connecting**, and
   **device disconnected** (amber) when the stream drops, over the last frame.
-- **Browser-tab title** — reflects what's streaming: `● Pixel_9 · stream-droid`
-  when live (the AVD name if known, else the serial), `⚠ …` when disconnected,
-  and just `stream-droid` when idle.
+  Connecting is patient — if you stream an emulator that's still booting, it waits
+  for the framework to come up (up to ~2.5 min) rather than erroring early.
+- **Browser-tab title** — `● <name> · streaming` only while a device is live
+  (the AVD name if known, else the serial); otherwise just `stream-droid`.
 
 ## Instant preview (poster)
 
