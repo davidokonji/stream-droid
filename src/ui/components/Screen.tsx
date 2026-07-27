@@ -152,7 +152,11 @@ export function Screen({
           <div className={overlay()}>
             <span className={oDot({ class: 'text-amber-300' })} />
             <span className={oTitle({ class: 'text-amber-300' })}>Device disconnected</span>
-            <span className={oSub()}>Reconnect from the sidebar</span>
+            {/* A view-only shared viewer has no sidebar to reconnect from — it's
+                the host's session to resume. */}
+            <span className={oSub()}>
+              {controllable ? 'Reconnect from the sidebar' : 'Waiting for the host…'}
+            </span>
           </div>
         ))
         .with('error', () => (
