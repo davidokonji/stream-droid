@@ -39,8 +39,7 @@ export function App() {
   const [headless, setHeadless] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
-  // AVDs this session booted headless (no host window). Closing one of these
-  // shuts the emulator down entirely, since there's no window to fall back to.
+
   const [headlessBooted, setHeadlessBooted] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -73,9 +72,7 @@ export function App() {
     }
   };
 
-  // Close the device we're streaming. A headless emulator we started has no
-  // window, so shut it down entirely; a windowed one just stops streaming (it
-  // keeps running, and can be re-streamed from the sidebar).
+
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
     setNotice(null);
@@ -84,8 +81,6 @@ export function App() {
     if (avd && headlessBooted.has(avd)) {
       try {
         await stopEmulator(serial);
-        // Only forget the headless flag once the shutdown actually succeeded, so a
-        // failed close still shows "Close" (not "Stop") for a retry.
         setHeadlessBooted((set) => {
           const n = new Set(set);
           n.delete(avd);
@@ -97,8 +92,6 @@ export function App() {
     }
   };
 
-  // Poll device/AVD state; auto-stream the pinned target (or first device) once,
-  // and clear the "booting" flag for any AVD that has come online.
   useEffect(() => {
     let alive = true;
     const tick = async (): Promise<void> => {
