@@ -16,8 +16,9 @@ export interface TunnelInfo {
   url: string | null; // public base URL while sharing
   control: boolean; // shared link carries the control token
   backend: string | null; // 'cloudflared' | 'localtunnel'
-  shareUrl: string | null; // the link to hand out (with ?k= in control mode); trusted-only
-  qr: string | null; // SVG QR of shareUrl; trusted-only
+  host: boolean; // caller is the local operator — the share panel is host-only
+  shareUrl: string | null; // the link to hand out (with ?k= in control mode); host-only
+  qr: string | null; // SVG QR of shareUrl; host-only
 }
 export interface State {
   avds: AvdStatus[];

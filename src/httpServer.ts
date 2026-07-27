@@ -67,26 +67,23 @@ export function createHttpServer(): http.Server {
     await match({ path, method: req.method })
       // Emulator state for the sidebar.
       .with({ path: '/api/state' }, () => {
-        // The QR / token-bearing share link go only to the local operator or a
-        // token-bearing caller — a view-only viewer over the tunnel must not get
-        // them (they'd decode the QR to escalate). See tunnelInfo(trusted).
-        const trusted = !isRemote(req) || isAuthorized(url);
+        // Only the local operator (host) gets the share panel + link/QR; a
+        // recipient of the shared link — even a control recipient — must not see
+        // the host's share dialog. Host = a direct request (no relay header).
         json(res, 200, {
           avds: avdStatuses(),
           devices: listDevices(),
           capture: config.CAPTURE,
           target: config.TARGET,
-          tunnel: tunnelInfo(trusted), // whether a public share is live, for the UI
+          tunnel: tunnelInfo(!isRemote(req)), // share panel is host-only
         });
       })
-      // Stop sharing: close the public tunnel without killing the server. The
-      // local operator can always stop their own share (direct request, and the
-      // `drive` helper sends no token); a viewer coming in over the tunnel
-      // (localtunnel adds x-forwarded-for) needs the control token, so a view-only
-      // recipient can't kill the share.
+      // Stop sharing: close the public tunnel without killing the server. Only the
+      // local operator (host) may — a request forwarded in over the relay (any
+      // recipient of the shared link) can't stop the host's share.
       .with({ path: '/api/tunnel', method: 'POST' }, async () => {
-        if (isRemote(req) && !isAuthorized(url)) {
-          json(res, 403, { ok: false, error: 'view-only session' });
+        if (isRemote(req)) {
+          json(res, 403, { ok: false, error: 'only the host can manage sharing' });
           return;
         }
         try {

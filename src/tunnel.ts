@@ -29,23 +29,26 @@ export interface TunnelInfo {
   url: string | null; // public base URL (view-only); safe to expose to anyone
   control: boolean; // whether the shared link carries the control token
   backend: string | null; // 'cloudflared' | 'localtunnel'
-  // Sensitive in control mode (they embed the token) — only returned to trusted
-  // (local operator / token-bearing) callers; null otherwise. See tunnelInfo(trusted).
+  host: boolean; // is the caller the local operator? (gates the share panel + data)
+  // The share panel is the host's — only the local operator sees the link/QR (and
+  // can stop). A recipient of the shared link (even a control recipient) must not:
+  // the QR/link embed the control token, and it's the host's session to manage.
   shareUrl: string | null;
   qr: string | null;
 }
 
-// `trusted` gates the token-bearing fields: in --tunnel-control mode shareUrl/qr
-// embed the control token, so a view-only viewer polling /api/state must not get
-// them (they could decode the QR to escalate). The base url/control flag are safe.
-export function tunnelInfo(trusted: boolean): TunnelInfo {
+// `host` = the caller is the local operator (a direct request, not one forwarded
+// in over the relay). Only the host gets the share link/QR and renders the share
+// panel; recipients of the shared link never do.
+export function tunnelInfo(host: boolean): TunnelInfo {
   return {
     active: current !== null,
     url: current?.url ?? null,
     control: config.TUNNEL_CONTROL,
     backend,
-    shareUrl: trusted ? shareUrl : null,
-    qr: trusted ? qrSvg : null,
+    host,
+    shareUrl: host ? shareUrl : null,
+    qr: host ? qrSvg : null,
   };
 }
 

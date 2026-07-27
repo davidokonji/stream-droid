@@ -110,7 +110,8 @@ export function Sidebar({
         🟢 running · ⚪ stopped. Headless boots with no host window — adb/stream only.
       </div>
 
-      {tunnel?.active && (
+      {/* Host-only: a recipient of the shared link never sees the share dialog. */}
+      {tunnel?.active && tunnel.host && (
         <div className={sh.box()}>
           <div className={sh.head()}>🔗 Sharing {tunnel.control ? '· control' : '· view-only'}</div>
           {/* QR is server-generated from our own share URL (not user input). */}
