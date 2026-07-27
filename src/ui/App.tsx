@@ -72,7 +72,6 @@ export function App() {
     }
   };
 
-
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
     setNotice(null);
@@ -92,6 +91,9 @@ export function App() {
     }
   };
 
+  // Slow the poll once a stream is live and nothing's booting; the WS reports
+  // disconnects, so there's no need to hit adb every 3 s.
+  const settled = live && booting.size === 0;
   useEffect(() => {
     let alive = true;
     const tick = async (): Promise<void> => {
@@ -119,12 +121,12 @@ export function App() {
       }
     };
     void tick();
-    const id = setInterval(tick, 3000);
+    const id = setInterval(tick, settled ? 10000 : 3000);
     return () => {
       alive = false;
       clearInterval(id);
     };
-  }, [connect, disconnect, serial]);
+  }, [connect, disconnect, serial, settled]);
 
   const s = layout({ open: menuOpen, sidebar: controllable });
   return (
