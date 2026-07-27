@@ -4,7 +4,7 @@ description: Use when you need an Android emulator running to build/test a mobil
 license: MIT
 compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Runs via the `stream-droid` CLI (bun or node ≥ 20).
 metadata:
-  version: '0.4.1'
+  version: '0.4.2'
 ---
 
 # emulators

@@ -4,7 +4,7 @@ description: Use when you need to work with apps on an Android emulator/device v
 license: MIT
 compatibility: Requires `adb` and a running device + stream-droid server; the helper runs on bun or node ≥ 18.
 metadata:
-  version: '0.4.1'
+  version: '0.4.2'
 ---
 
 # apps

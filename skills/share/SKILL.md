@@ -4,7 +4,7 @@ description: Use when you need to share a live stream-droid session with someone
 license: MIT
 compatibility: Runs via the `stream-droid` CLI (bun or node ≥ 20); the public relay is localtunnel.
 metadata:
-  version: '0.4.1'
+  version: '0.4.2'
 ---
 
 # share

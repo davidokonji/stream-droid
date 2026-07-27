@@ -4,7 +4,7 @@ description: Use when building, testing, debugging, or exploring a mobile app on
 license: MIT
 compatibility: Requires `adb` and a running device; the helper scripts run on bun or node ≥ 18 and start the stream-droid server for you.
 metadata:
-  version: '0.4.1'
+  version: '0.4.2'
 ---
 
 # drive
