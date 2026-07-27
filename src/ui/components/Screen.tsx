@@ -12,7 +12,7 @@ const screen = tv({
     surface:
       'block max-h-[78vh] max-w-full cursor-crosshair rounded-xl bg-black object-contain shadow-[0_8px_40px_rgba(0,0,0,0.5)]',
     badge:
-      'pointer-events-none absolute top-2 flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-[11px]',
+      'pointer-events-none absolute bottom-2 flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-[11px]',
     overlay:
       'pointer-events-none absolute inset-0 z-10 flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-xl bg-black/65 px-4 text-center backdrop-blur-[1px]',
     spinner: 'h-6 w-6 animate-spin rounded-full border-2 border-neutral-600 border-t-neutral-200',
