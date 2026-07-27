@@ -1,6 +1,6 @@
 {
   "name": "stream-droid",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Stream a running Android emulator or device to the browser and drive it (tap/swipe/type/keys) — for humans and AI agents. TypeScript + bun.",
   "type": "module",
   "license": "MIT",

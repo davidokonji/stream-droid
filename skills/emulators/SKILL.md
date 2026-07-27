@@ -4,7 +4,7 @@ description: Use when you need an Android emulator running to build/test a mobil
 license: MIT
 compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Goes through the drive skill's helper (node or bun ≥ 18).
 metadata:
-  version: '0.4.5'
+  version: '0.4.6'
 ---
 
 # emulators

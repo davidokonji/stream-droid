@@ -9,7 +9,7 @@
       "name": "stream-droid",
       "source": "./",
       "description": "See and drive an Android emulator or device: screenshot the screen, read its on-screen UI, and tap/type/swipe/press keys via the stream-droid server. Ships the drive, emulators, apps, and share skills.",
-      "version": "0.4.5",
+      "version": "0.4.6",
       "author": {
         "name": "David Okonji"
       },
