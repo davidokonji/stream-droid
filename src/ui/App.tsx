@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { tv } from 'tailwind-variants';
 import { fetchState, startAvd, stopEmulator } from './api';
 import { useDeviceStream } from './useDeviceStream';
@@ -7,6 +7,7 @@ import { Sidebar } from './components/Sidebar';
 import { Screen } from './components/Screen';
 import { NavBar } from './components/NavBar';
 import { LiveDot } from './components/LiveDot';
+import { Notice, type NoticeData } from './components/Notice';
 import type { AvdStatus } from './types';
 
 const layout = tv({
@@ -20,7 +21,6 @@ const layout = tv({
     main: 'flex min-w-0 flex-col items-center justify-center gap-2.5 p-3.5',
     hint: 'text-[12px] opacity-45',
     status: 'flex min-h-[1.2em] items-center gap-2 opacity-55',
-    notice: 'text-[12px] text-amber-300',
   },
   variants: {
     open: { true: { drawer: 'translate-x-0' }, false: { drawer: '-translate-x-full' } },
@@ -28,6 +28,13 @@ const layout = tv({
     sidebar: { true: { root: 'md:grid md:grid-cols-[240px_1fr]' } },
   },
 });
+
+// Give up the "booting…" spinner if an AVD hasn't come online in this long — a
+// boot can stall or crash silently (leaving only a crash handler), and the user
+// shouldn't be stranded on a spinner. Well past a normal cold boot (~20–60 s), so
+// a slow-but-fine boot isn't cut off; polling continues either way, so one that
+// eventually lands still shows up in the sidebar.
+const BOOT_GIVE_UP_MS = 120_000;
 
 export function App() {
   const { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, disconnect, send } =
@@ -40,7 +47,12 @@ export function App() {
   // When each shutdown started, so a transient adb hiccup during `emu kill` can't
   // clear "shutting down" before the emulator is really gone (see the poll below).
   const stoppingSince = useRef<Map<string, number>>(new Map());
-  const [notice, setNotice] = useState<string | null>(null);
+  // AVD the user just booted: stream it automatically once it comes up, so booting
+  // from the sidebar (headless especially) doesn't strand them on a "Stream" button.
+  const autoStream = useRef<string | null>(null);
+  // When each boot started, so a stalled/crashed boot can be timed out (see poll).
+  const bootingSince = useRef<Map<string, number>>(new Map());
+  const [notice, setNotice] = useState<NoticeData | null>(null);
 
   useKeyboard(send, controllable);
 
@@ -51,19 +63,26 @@ export function App() {
     document.title = name ? `● ${name} · streaming` : 'stream-droid';
   }, [serial, live, avds]);
 
-  const startBoot = async (avd: string): Promise<void> => {
-    setBooting((b) => new Set(b).add(avd));
-    try {
-      await startAvd(avd, headless);
-    } catch (e) {
-      setBooting((b) => {
-        const n = new Set(b);
-        n.delete(avd);
-        return n;
-      });
-      throw e;
-    }
-  };
+  const startBoot = useCallback(
+    async (avd: string): Promise<void> => {
+      autoStream.current = avd; // stream it as soon as it finishes booting
+      bootingSince.current.set(avd, Date.now());
+      setBooting((b) => new Set(b).add(avd));
+      try {
+        await startAvd(avd, headless);
+      } catch (e) {
+        autoStream.current = null;
+        bootingSince.current.delete(avd);
+        setBooting((b) => {
+          const n = new Set(b);
+          n.delete(avd);
+          return n;
+        });
+        throw e;
+      }
+    },
+    [headless],
+  );
 
   // Kill an emulator. Mark it "shutting down" first so its sidebar row doesn't flash
   // "Stream" — the device stays running (and streamable) until adb-kill propagates
@@ -82,7 +101,7 @@ export function App() {
         n.delete(name);
         return n;
       });
-      setNotice(`couldn't stop ${name}: ${(e as Error).message}`);
+      setNotice({ message: `Couldn't stop ${name}: ${(e as Error).message}`, tone: 'error' });
     }
   };
 
@@ -116,12 +135,45 @@ export function App() {
         const st = await fetchState();
         if (!alive) return;
         setAvds(st.avds);
-        setBooting((b) => {
-          if (b.size === 0) return b;
-          const n = new Set(b);
-          for (const a of st.avds) if (a.running) n.delete(a.name);
-          return n.size === b.size ? b : n;
-        });
+        // Clear "booting" when the emulator comes online — or give up after a
+        // timeout so a stalled/crashed boot doesn't spin forever. Either way we keep
+        // polling, so a slow boot that eventually lands still appears in the sidebar.
+        const nowMs = Date.now();
+        const online = [...bootingSince.current.keys()].filter((n) =>
+          st.avds.some((a) => a.name === n && a.running),
+        );
+        const timedOut = [...bootingSince.current.keys()].filter(
+          (n) => !online.includes(n) && nowMs - (bootingSince.current.get(n) ?? nowMs) > BOOT_GIVE_UP_MS,
+        );
+        for (const n of [...online, ...timedOut]) bootingSince.current.delete(n);
+        if (online.length || timedOut.length) {
+          setBooting((b) => {
+            if (b.size === 0) return b;
+            const n = new Set(b);
+            for (const nm of online) n.delete(nm);
+            for (const nm of timedOut) n.delete(nm);
+            return n.size === b.size ? b : n;
+          });
+        }
+        if (timedOut.length) {
+          // Don't let a late boot silently grab focus later; the user can retry.
+          if (autoStream.current && timedOut.includes(autoStream.current)) autoStream.current = null;
+          const names = timedOut.join(', ');
+          const one = timedOut.length === 1 ? timedOut[0]! : null;
+          setNotice({
+            message: `${names} didn't come online — it may have stalled or crashed. It'll still appear here if it finishes booting.`,
+            tone: 'warn',
+            retryLabel: one ? `Retry ${one}` : undefined,
+            onRetry: one
+              ? () => {
+                  setNotice(null);
+                  void startBoot(one).catch((e: unknown) =>
+                    setNotice({ message: (e as Error).message, tone: 'error' }),
+                  );
+                }
+              : undefined,
+          });
+        }
         // Clear "shutting down" once the emulator has really stopped. During
         // `emu kill` the emulator's adb console flakes, so it can momentarily
         // report not-running and then running again — clearing on that first blip
@@ -142,12 +194,23 @@ export function App() {
         // The streamed device vanished (emulator closed) — tear the stream down so
         // the UI shows "disconnected" instead of a frozen frame, without a reload.
         if (serial && !st.devices.some((d) => d.serial === serial)) disconnect();
+        // Auto-stream a device the user just booted the moment it comes up — even
+        // if a stale serial from an earlier session is still around — so booting
+        // from the sidebar doesn't leave them on a "Stream" button to click again.
+        // Otherwise, pick up an already-running device when nothing's streaming yet.
+        const wanted = autoStream.current;
+        const booted = wanted && st.avds.find((a) => a.name === wanted && a.running && a.serial);
         const t = st.target?.toLowerCase();
         const preferred =
           (t
             ? st.devices.find((d) => d.serial.toLowerCase() === t || d.avd.toLowerCase() === t)
             : undefined) ?? st.devices[0];
-        if (!serial && preferred) connect(preferred.serial);
+        if (booted && booted.serial) {
+          autoStream.current = null;
+          connect(booted.serial);
+        } else if (!serial && preferred) {
+          connect(preferred.serial);
+        }
       } catch {
         /* transient; next tick retries */
       }
@@ -158,7 +221,7 @@ export function App() {
       alive = false;
       clearInterval(id);
     };
-  }, [connect, disconnect, serial, settled]);
+  }, [connect, disconnect, serial, settled, startBoot]);
 
   // Actionable idle empty state: offer a one-click boot of the first stopped AVD,
   // reflect an in-progress boot, and guide when there are no AVDs at all.
@@ -176,7 +239,10 @@ export function App() {
     startLabel: startable ? `Start ${startable.name}` : undefined,
     onStart:
       !busy && startable
-        ? () => void startBoot(startable.name).catch((e: unknown) => setNotice((e as Error).message))
+        ? () =>
+            void startBoot(startable.name).catch((e: unknown) =>
+              setNotice({ message: (e as Error).message, tone: 'error' }),
+            )
         : undefined,
   };
 
@@ -244,7 +310,7 @@ export function App() {
             {status}
           </div>
         )}
-        {notice && <div className={s.notice()}>{notice}</div>}
+        {notice && <Notice data={notice} onDismiss={() => setNotice(null)} />}
       </main>
     </div>
   );

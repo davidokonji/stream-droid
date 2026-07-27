@@ -10,7 +10,12 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
   - **Start** on a stopped AVD boots it (tick **headless** first for no host
     window). **Stream** on a running one connects to it.
   - After **Start**, the row shows a spinner + **booting…** until the emulator
-    comes online (~20-60 s) — it doesn't silently revert to Start.
+    comes online (~20-60 s) — it doesn't silently revert to Start. Once it's up
+    the stream connects **automatically** (headless included), so you don't have
+    to click **Stream** yourself.
+  - If a boot stalls or crashes, the spinner gives up after ~2 min and a notice
+    explains it's taking too long (**Start** to retry). Polling continues, so a
+    slow boot that eventually lands still shows up running in the sidebar.
   - The streaming row shows **● LIVE** with a **Close/Stop** button. If the
     emulator is running **headless** (no window), it reads **Close** and shuts it
     down entirely (`adb emu kill`) — there's no window to fall back to. Whether
