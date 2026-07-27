@@ -112,6 +112,9 @@ skill change.
 - **`ts-pattern` for dispatch & discriminated unions.** Use `match(...).with(...)
   .exhaustive()` for command dispatch, the control-message switch in each
   controller, capture selection, and platform branching — not `switch`/if-chains.
+  It's used in the client too (e.g. `Screen.tsx` renders per `ConnState`); the
+  ~6 KB it adds to the bundle is an accepted trade for exhaustive, readable
+  state rendering.
 - **All classNames go through `tailwind-variants` (`tv`)** — `tv({ base })`,
   `tv({ slots })`, or `tv({ variants })`. There is no `cn` helper; don't add one.
 - **React:** function components + hooks only. Imperative stream/WS/jMuxer logic

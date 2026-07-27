@@ -123,22 +123,35 @@ function psHeadlessAvds(): Set<string> {
   return set;
 }
 
-// Join the AVD list with running state for the sidebar.
+// Last time each AVD was seen running, so the sidebar can surface the most
+// recently used emulators first. In-memory (per server run).
+const lastActive = new Map<string, number>();
+
+// Join the AVD list with running state for the sidebar, ordered most-recently-active
+// first: running emulators, then stopped ones by last-run recency, then the rest.
 export function avdStatuses(): AvdStatus[] {
   const running = listDevices();
+  const now = Date.now();
+  for (const d of running) lastActive.set(d.avd, now);
   const bySerial = new Map(running.map((d) => [d.avd, d.serial] as const));
   const ps = running.length ? psHeadlessAvds() : new Set<string>();
   const names = new Set(listAvds());
   // Include any running AVD that -list-avds didn't report (e.g. ad-hoc).
   for (const d of running) names.add(d.avd);
-  return [...names].toSorted().map((name) => ({
-    name,
-    running: bySerial.has(name),
-    serial: bySerial.get(name) ?? null,
-    // Windowless if either signal says so — process scan (cross-session, unix) or
-    // this server's own headless boots (works everywhere, incl. Windows).
-    headless: bySerial.has(name) && (bootedHeadless.has(name) || ps.has(name)),
-  }));
+  return [...names]
+    .map((name) => ({
+      name,
+      running: bySerial.has(name),
+      serial: bySerial.get(name) ?? null,
+      // Windowless if either signal says so — process scan (cross-session, unix) or
+      // this server's own headless boots (works everywhere, incl. Windows).
+      headless: bySerial.has(name) && (bootedHeadless.has(name) || ps.has(name)),
+    }))
+    .sort((a, b) => {
+      if (a.running !== b.running) return a.running ? -1 : 1; // running first
+      const diff = (lastActive.get(b.name) ?? 0) - (lastActive.get(a.name) ?? 0);
+      return diff || a.name.localeCompare(b.name); // most-recent, then stable alpha
+    });
 }
 
 // Boot an AVD. `headless` adds -no-window: no host GUI, adb-only — ideal for a

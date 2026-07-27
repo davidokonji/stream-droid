@@ -117,6 +117,26 @@ export function App() {
     };
   }, [connect, disconnect, serial, settled]);
 
+  // Actionable idle empty state: offer a one-click boot of the first stopped AVD,
+  // reflect an in-progress boot, and guide when there are no AVDs at all.
+  const busy = booting.size > 0;
+  const bootingName = [...booting][0];
+  const startable = avds.find((a) => !a.running && !booting.has(a.name));
+  const empty = {
+    busy,
+    title: busy && bootingName ? `Booting ${bootingName}…` : 'No device streaming',
+    hint: busy
+      ? 'This can take 20–60s'
+      : avds.length
+        ? 'or start another from the sidebar'
+        : 'No AVDs found — install the Android SDK emulator',
+    startLabel: startable ? `Start ${startable.name}` : undefined,
+    onStart:
+      !busy && startable
+        ? () => void startBoot(startable.name).catch((e: unknown) => setNotice((e as Error).message))
+        : undefined,
+  };
+
   const s = layout({ open: menuOpen, sidebar: controllable });
   return (
     <div className={s.root()}>
@@ -156,7 +176,9 @@ export function App() {
       )}
 
       <main className={s.main()}>
-        {controllable && <div className={s.hint()}>click = tap · drag = swipe · type = keys</div>}
+        {/* The interaction hint + nav bar only make sense with a live device to
+            drive — hide them while idle/connecting/disconnected. */}
+        {controllable && live && <div className={s.hint()}>click = tap · drag = swipe · type = keys</div>}
         <Screen
           videoRef={videoRef}
           canvasRef={canvasRef}
@@ -164,14 +186,19 @@ export function App() {
           live={live}
           state={state}
           status={status}
+          empty={empty}
           controllable={controllable}
           onControl={send}
         />
-        {controllable && <NavBar onKey={(key) => send({ type: 'key', key })} />}
-        <div className={s.status()}>
-          {live && <LiveDot />}
-          {status}
-        </div>
+        {controllable && live && <NavBar onKey={(key) => send({ type: 'key', key })} />}
+        {/* Status line: serial · WxH · codec when live, connecting/disconnected notes
+            otherwise. Idle is covered by the empty state, so skip the redundant line. */}
+        {state !== 'idle' && (
+          <div className={s.status()}>
+            {live && <LiveDot />}
+            {status}
+          </div>
+        )}
         {notice && <div className={s.notice()}>{notice}</div>}
       </main>
     </div>

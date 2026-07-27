@@ -4,7 +4,9 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
 
 ## Layout
 
-- **Sidebar (Emulators)** — every AVD: 🟢 running · 🟡 booting · ⚪ stopped.
+- **Sidebar (Emulators)** — every AVD: 🟢 running · 🟡 booting · ⚪ stopped,
+  ordered **most-recently-active first** (running ones on top, then stopped by
+  last-run recency).
   - **Start** on a stopped AVD boots it (tick **headless** first for no host
     window). **Stream** on a running one connects to it.
   - After **Start**, the row shows a spinner + **booting…** until the emulator
@@ -24,8 +26,14 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     untouched.
   - The streaming row shows a pulsing **● LIVE** badge instead of Stream.
   - Polls `/api/state` every 3 s to reflect boot/shutdown.
-- **Main** — the live device, nav buttons (◀ Back · ● Home · ■ Recents), and a
-  status line: `serial · WxH · codec` (+ view-only when applicable).
+- **Main** — the live device with nav buttons (◀ Back · ● Home · ■ Recents) and a
+  status line (`serial · WxH · codec`, + view-only when applicable). The nav bar,
+  the `click = tap · drag = swipe · type = keys` hint, and the status line show
+  **only while a device is live**.
+  - **When nothing is streaming**, a device-shaped empty state replaces the
+    preview: it offers a one-click **▶ Start <name>** for your most-recent
+    emulator (or guidance to install the SDK emulator if none exist), reflects an
+    in-progress boot, and points to the sidebar for the rest.
 
 ## Driving
 
