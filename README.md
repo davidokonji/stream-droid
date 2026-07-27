@@ -101,7 +101,7 @@ by default.
 
 | Flag | Env | Default | Meaning |
 |---|---|---|---|
-| `--port` | `PORT` | `3200` | HTTP + WS port |
+| `--port` | `PORT` | `3200` | HTTP + WS port (if busy, prompts to use the next free port; auto when headless / non-interactive) |
 | `-d` / `--headless` | `STREAM_DROID_HEADLESS=1` | off | **don't** auto-open the browser (server still runs) |
 | `-v` / `--verbose` | `STREAM_DROID_VERBOSE=1` | off | show logs — quiet by default (only errors); `-v` prints info/warn/debug (frames, control) + timestamps |
 | `--serial` / `--emulator` / `--avd` | `ANDROID_SERIAL` | first running device | device to stream (adb serial or AVD name) |
