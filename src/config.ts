@@ -21,8 +21,18 @@ const VALUE_FLAGS = new Set([
   '--capture',
   '--scrcpy-server',
   '--scrcpy-control',
+  '--max-size',
+  '--bit-rate',
   '--kill',
 ]);
+
+// Parse a bit-rate like "4000000", "3M", or "800K" → bits/sec (0 if unset/invalid).
+function parseBitRate(s: string): number {
+  const m = /^(\d+(?:\.\d+)?)\s*([kKmM]?)$/.exec(s.trim());
+  if (!m) return 0;
+  const unit = m[2]!.toLowerCase();
+  return Math.round(Number(m[1]) * (unit === 'm' ? 1e6 : unit === 'k' ? 1e3 : 1));
+}
 // Bare (non-flag) arguments, e.g. the emulator name in `stream-droid Pixel_9`.
 function positionals(): string[] {
   const out: string[] = [];
@@ -47,7 +57,7 @@ const SECURE = TUNNEL; // gate control behind a token while tunneling
 const CAPTURE = getArg('--capture', process.env.CAPTURE ?? 'screenrecord'); // screenrecord | scrcpy | grpc
 const HELP = hasFlag('-h', '--help');
 const LIST = hasFlag('-a', '--list');
-const LOG = hasFlag('-l', '--log');
+const LOG = hasFlag('-l', '--log', '--logcat');
 // Target device: an adb serial OR an AVD name, from a flag/env or the first bare arg.
 const TARGET = getArg(
   '--serial',
@@ -69,6 +79,11 @@ export const config = {
   CODEC: (CAPTURE === 'grpc' ? 'png' : 'h264') as Codec, // gRPC → PNG frames, else H.264
   SCRCPY_JAR: getArg('--scrcpy-server', process.env.SCRCPY_SERVER_JAR ?? ''),
   SCRCPY_CONTROL: getArg('--scrcpy-control', process.env.SCRCPY_CONTROL ?? 'on') !== 'off',
+  // Capture tuning (h264 backends). MAX_SIZE caps the longer edge in px (0 =
+  // native); BIT_RATE is bits/sec (0 = the backend's default). Downscaling and a
+  // lower bit-rate cut the on-device encode cost and bandwidth — see docs/capture.
+  MAX_SIZE: Number(getArg('--max-size', process.env.STREAM_DROID_MAX_SIZE ?? '0')) || 0,
+  BIT_RATE: parseBitRate(getArg('--bit-rate', process.env.STREAM_DROID_BIT_RATE ?? '0')),
   // Headless server: don't auto-open the browser (the app still serves).
   HEADLESS: hasFlag('-d', '--headless') || process.env.STREAM_DROID_HEADLESS === '1',
   // Verbose: print debug logs (per request / frame / control) + timestamps.

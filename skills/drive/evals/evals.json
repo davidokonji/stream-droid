@@ -71,6 +71,17 @@
         "Reports the saved file paths back to the user."
       ],
       "files": []
+    },
+    {
+      "id": 7,
+      "name": "check-recent-logcat",
+      "prompt": "Show me the recent logs from the app — anything mentioning crash.",
+      "expected_behavior": [
+        "Runs `bun scripts/drive.mjs logcat crash` to dump recent device logcat filtered to matching lines.",
+        "Uses the bounded dump (it returns a snapshot, not an endless follow) and optionally `--lines N` for more history.",
+        "Reads the pretty-printed, level-tagged output to reason about the issue — does NOT start an endless streaming follow that never returns."
+      ],
+      "files": []
     }
   ]
 }

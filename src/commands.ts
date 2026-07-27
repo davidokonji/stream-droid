@@ -22,7 +22,7 @@ Usage:
 Commands (run and exit):
   -a, --list                 list running streams and stopped AVDs
       --kill [name]          shut down a running emulator (emulators only)
-  -l, --log                  stream the device's logcat, colourised by level
+  -l, --log, --logcat        stream the device's logcat, colourised by level
   -h, --help                 show this help
 
 Options:
@@ -30,10 +30,12 @@ Options:
       --serial <s>           device to stream — adb serial or AVD name
                              (aliases: --emulator, --avd)
       --capture <mode>       screenrecord (default) | scrcpy | grpc (emulator-only)
+      --max-size <px>        downscale capture so its longer edge ≤ px (h264 backends; 0 = native)
+      --bit-rate <n>         encoder bit-rate, e.g. 4000000, 3M, 800K (h264 backends)
       --scrcpy-server <path> scrcpy-server v4.1 jar (optional — auto-downloads if omitted)
       --scrcpy-control <v>   on (default) | off — off routes input via \`adb input\`
   -d, --headless             don't auto-open the browser (server still runs)
-  -v, --verbose              print debug logs (requests, frames, control) + timestamps
+  -v, --verbose              print debug logs (frames, control) + timestamps
   -t, --tunnel               expose a public link + console QR (view-only)
   -tc, --tunnel-control      tunnel with a controllable shared link
 

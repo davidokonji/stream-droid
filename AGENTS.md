@@ -100,8 +100,10 @@ skill change.
 - **Logging via `src/log.ts`, not `console.*`.** Use `log.info/warn/error` or a
   scoped `logger('scope')`. The logger is **quiet by default**: `info`, `warn`,
   and `debug` print only with `-v`/`--verbose` (which also timestamps); only
-  `error` always prints. Put per-request/frame/control detail in `.debug()`, and
-  gate raw child-process output on `config.VERBOSE`. Standalone command output
+  `error` always prints. Put per-frame/control detail in `.debug()`, and
+  gate raw child-process output on `config.VERBOSE`. Don't log the server's own
+  HTTP access lines — the client polls `/api/state` every 3 s, so per-request logs
+  just flood the terminal even under `-v`. Standalone command output
   (`-h`/`-a`/`-l`/`--kill`/tunnel QR) uses `console.*` directly so it always shows.
 - **`ts-pattern` for dispatch & discriminated unions.** Use `match(...).with(...)
   .exhaustive()` for command dispatch, the control-message switch in each

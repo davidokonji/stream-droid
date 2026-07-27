@@ -5,13 +5,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { match } from 'ts-pattern';
 import { config, isAuthorized } from './config.ts';
-import { logger } from './log.ts';
 import { adbFor, resolveSerial } from './adb.ts';
 import { avdStatuses, killEmulator, listDevices, startEmulator } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
-
-const log = logger('http');
 
 const STATIC: Record<string, string> = {
   '/': 'text/html; charset=utf-8',
@@ -52,8 +49,6 @@ export function createHttpServer(): http.Server {
     const url = req.url ?? '/';
     const path = url.split('?')[0] ?? '/'; // route on the path; auth reads ?k= off `url`
     const q = new URL(url, 'http://localhost').searchParams;
-    const t0 = Date.now();
-    res.on('finish', () => log.debug(`${req.method} ${path} → ${res.statusCode} (${Date.now() - t0}ms)`));
 
     await match({ path, method: req.method })
       // Emulator state for the sidebar.

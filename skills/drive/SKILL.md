@@ -65,6 +65,7 @@ and run under **bun or node ≥ 18**.
 | `bun scripts/drive.mjs devices` | list running devices |
 | `bun scripts/drive.mjs shot [file]` | save a screenshot PNG (default `screen.png`) |
 | `bun scripts/drive.mjs record [secs] [file]` | record the screen to MP4 (default 10s, `screen.mp4`) |
+| `bun scripts/drive.mjs logcat [grep] [--lines N]` | pretty-print recent device logcat (default 200 lines) |
 | `bun scripts/drive.mjs ui [grep]` | dump UI elements; optional case-insensitive text filter |
 | `bun scripts/drive.mjs tap:text "Network & internet"` | tap the element whose text/desc contains this |
 | `bun scripts/drive.mjs tap:id search` | tap by resource-id (full or the tail after `/`) |

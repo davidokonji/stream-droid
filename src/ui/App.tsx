@@ -23,6 +23,7 @@ const layout = tv({
     main: 'flex min-w-0 flex-col items-center justify-center gap-2.5 p-3.5',
     hint: 'text-[12px] opacity-45',
     status: 'flex min-h-[1.2em] items-center gap-2 opacity-55',
+    notice: 'text-[12px] text-amber-300',
   },
   variants: {
     open: { true: { drawer: 'translate-x-0' }, false: { drawer: '-translate-x-full' } },
@@ -38,9 +39,9 @@ export function App() {
   const [headless, setHeadless] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
-  // AVDs this session booted headless (no host window). Closing one of these
-  // shuts the emulator down entirely, since there's no window to fall back to.
+
   const [headlessBooted, setHeadlessBooted] = useState<Set<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
 
   useKeyboard(send, controllable);
 
@@ -71,29 +72,28 @@ export function App() {
     }
   };
 
-  // Close the device we're streaming. A headless emulator we started has no
-  // window, so shut it down entirely; a windowed one just stops streaming (it
-  // keeps running, and can be re-streamed from the sidebar).
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
+    setNotice(null);
     const avd = avds.find((a) => a.serial === serial)?.name;
     disconnect();
     if (avd && headlessBooted.has(avd)) {
       try {
         await stopEmulator(serial);
-      } catch {
-        /* device may already be gone */
+        setHeadlessBooted((set) => {
+          const n = new Set(set);
+          n.delete(avd);
+          return n;
+        });
+      } catch (e) {
+        setNotice(`couldn't stop ${avd}: ${(e as Error).message}`);
       }
-      setHeadlessBooted((set) => {
-        const n = new Set(set);
-        n.delete(avd);
-        return n;
-      });
     }
   };
 
-  // Poll device/AVD state; auto-stream the pinned target (or first device) once,
-  // and clear the "booting" flag for any AVD that has come online.
+  // Slow the poll once a stream is live and nothing's booting; the WS reports
+  // disconnects, so there's no need to hit adb every 3 s.
+  const settled = live && booting.size === 0;
   useEffect(() => {
     let alive = true;
     const tick = async (): Promise<void> => {
@@ -121,12 +121,12 @@ export function App() {
       }
     };
     void tick();
-    const id = setInterval(tick, 3000);
+    const id = setInterval(tick, settled ? 10000 : 3000);
     return () => {
       alive = false;
       clearInterval(id);
     };
-  }, [connect, disconnect, serial]);
+  }, [connect, disconnect, serial, settled]);
 
   const s = layout({ open: menuOpen, sidebar: controllable });
   return (
@@ -184,6 +184,7 @@ export function App() {
           {live && <LiveDot />}
           {status}
         </div>
+        {notice && <div className={s.notice()}>{notice}</div>}
       </main>
     </div>
   );

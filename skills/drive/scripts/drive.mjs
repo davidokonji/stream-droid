@@ -30,8 +30,33 @@ const SERIAL_ARG = opt('--serial', 'STREAM_DROID_SERIAL');
 // work. Override with --out-dir or $STREAM_DROID_OUT_DIR, or pass an explicit path.
 const OUT_DIR = opt('--out-dir', 'STREAM_DROID_OUT_DIR') ?? process.cwd();
 const outPath = (name) => (isAbsolute(name) ? name : resolve(OUT_DIR, name));
+const LINES = opt('--lines') ?? '200'; // logcat: how many recent lines to dump
 const BASE = `http://localhost:${PORT}`;
 const [cmd, ...rest] = argv;
+
+// Pretty-print logcat: colourise by level + align the tag on a TTY; plain but
+// still aligned when piped, so an agent parsing stdout gets clean text.
+const TTY = process.stdout.isTTY;
+const ANSI = { reset: '\x1b[0m', dim: '\x1b[2m', gray: '\x1b[90m', blue: '\x1b[34m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', mag: '\x1b[35m' };
+const paint = (col, s) => (TTY ? `${ANSI[col]}${s}${ANSI.reset}` : s);
+const LVL_COLOR = { V: 'gray', D: 'blue', I: 'green', W: 'yellow', E: 'red', F: 'mag' };
+function prettyLogcat(raw, grep) {
+  const out = [];
+  for (const line of raw.split('\n')) {
+    if (!line) continue;
+    const m = /^([VDIWEF])\/(.+?)\(\s*\d+\):\s?(.*)$/.exec(line);
+    if (!m) {
+      // e.g. "--------- beginning of main" separators
+      if (!grep || line.toLowerCase().includes(grep)) out.push(paint('dim', line));
+      continue;
+    }
+    const [, lvl, rawTag, msg] = m;
+    const tag = rawTag.trim();
+    if (grep && !`${tag} ${msg}`.toLowerCase().includes(grep)) continue;
+    out.push(`${paint(LVL_COLOR[lvl], lvl)}  ${paint('dim', tag.padEnd(22).slice(0, 22))}  ${msg}`);
+  }
+  return out.join('\n');
+}
 
 const die = (msg) => {
   console.error(`drive: ${msg}`);
@@ -98,6 +123,7 @@ function help() {
   launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
   record [secs] [file]        record the screen to MP4 (default 10s, screen.mp4)
+  logcat [grep] [--lines N]   pretty-print recent device logcat (default 200 lines)
   ui [grep]                   list UI elements (• = clickable); optional text filter
   tap:text <text>             tap the element whose text/desc contains <text>
   tap:id <resource-id>        tap by resource-id (full, or the tail after '/')
@@ -145,6 +171,20 @@ async function main() {
       spawnSync('adb', ['-s', serial, 'shell', 'rm', '-f', onDevice]);
       if (pull.status !== 0) die('could not pull the recording off the device');
       console.log(`saved ${file} from ${serial}`);
+      break;
+    }
+    case 'logcat': {
+      // Bounded dump of the most recent lines (not a follow) — agents want a
+      // snapshot to reason over, not an endless stream. `--lines N` / optional grep.
+      const serial = await resolveSerial();
+      const grep = rest[0]?.toLowerCase();
+      const r = spawnSync('adb', ['-s', serial, 'logcat', '-d', '-v', 'brief', '-t', LINES], {
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+      });
+      if (r.status !== 0) die('logcat failed (is the device online?)');
+      const out = prettyLogcat(r.stdout, grep);
+      console.log(out || '(no matching logcat lines)');
       break;
     }
     case 'ui': {
