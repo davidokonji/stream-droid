@@ -1,6 +1,6 @@
 {
   "name": "stream-droid",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "Stream a running Android emulator or device to the browser and drive it (tap/swipe/type/keys) — for humans and AI agents. TypeScript + bun.",
   "type": "module",
   "license": "MIT",
@@ -73,6 +73,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1",
+    "cloudflared": "^0.7.1",
     "jmuxer": "^2.1.1",
     "localtunnel": "^2.0.2",
     "qrcode": "^1.5.4",

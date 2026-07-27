@@ -2,11 +2,11 @@
 name: share
 description: Use when you need to share a live stream-droid session with someone else — expose it as a public URL with a scannable QR, view-only by default or controllable.
 license: MIT
-compatibility: Runs via the `stream-droid` CLI (bun or node ≥ 20); the public relay is localtunnel.
+compatibility: Runs via the `stream-droid` CLI (bun or node ≥ 20); public relay is cloudflared (default, no interstitial) or localtunnel.
 allowed-tools:
   - Bash(drive *)
 metadata:
-  version: '0.4.8'
+  version: '0.4.9'
 ---
 
 # share
@@ -46,19 +46,21 @@ The local browser also shows a **🔗 Sharing … · Stop sharing** bar while a 
 is live — clicking it does the same. (Killing the whole server process, e.g. Ctrl-C,
 also tears the tunnel down.)
 
-## Relay: cloudflared vs localtunnel
+## Relay: cloudflared (default) vs localtunnel
 
-Two backends. **cloudflared** gives a `*.trycloudflare.com` link with **no visitor
-reminder page** — if the `cloudflared` binary is installed, stream-droid uses it by
-default. **localtunnel** needs no install but shows a one-time interstitial (below).
-Force either with `--tunnel-backend cloudflared|localtunnel` (default `auto`).
+Two backends. **cloudflared** (the default) gives a `*.trycloudflare.com` link with
+**no visitor reminder page**. Its binary comes from the bundled `cloudflared` npm
+package — fetched once on first use, or a system `cloudflared` is reused if present —
+so there's nothing to install. **localtunnel** is the fallback (used if cloudflared
+can't start, or with `--tunnel-backend localtunnel`), but shows a one-time
+interstitial (below). Force a backend with `--tunnel-backend cloudflared|localtunnel`
+(default `auto`).
 
 **localtunnel's first-visit reminder.** On their first open, a recipient of a
 `*.loca.lt` link sees a "You are about to visit…" interstitial from localtunnel
 (not stream-droid) that shows the tunnel's IP and asks them to re-type it — a
 built-in anti-abuse gate on the free relay, shown once per visitor. It **can't** be
-removed on localtunnel; install `cloudflared` (or pass `--tunnel-backend
-cloudflared`) to avoid it entirely.
+removed on localtunnel; the default cloudflared backend avoids it entirely.
 
 ## View-only vs control (important)
 

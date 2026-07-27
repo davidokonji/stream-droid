@@ -27,7 +27,7 @@ client per device assumed, localhost-first.
   current runtime; the npm package ships them prebuilt so running never builds.
 - **Language:** TypeScript, `strict`, **no `any`** (enforced by oxlint).
 - **Server deps:** `ws`, `@grpc/grpc-js` + `@grpc/proto-loader`, `ts-pattern`,
-  `localtunnel`, `qrcode`.
+  `localtunnel`, `cloudflared` (managed tunnel binary), `qrcode`.
 - **Client:** React 19 + `react-dom`, **Tailwind v4** (`@tailwindcss/cli`),
   **tailwind-variants** (`tv`), `jmuxer` (H.264→MSE). Bundled by `bun build`.
 - **Lint/format:** [OXC](https://oxc.rs) — `oxlint` (`.oxlintrc.json`) + `oxfmt`
@@ -66,7 +66,7 @@ src/
   httpServer.ts    static assets + /api/{state,start,stop,health,tunnel,apps,launch,hierarchy} (ts-pattern routes)
   wsServer.ts      per-connection: stream frames out, route control in
   commands.ts      -h help · -a list · --kill · -l log · --tunnel
-  tunnel.ts        localtunnel lifecycle: open/stop/info (share on/off without killing the server)
+  tunnel.ts        tunnel lifecycle: open/stop/info; cloudflared (default, via npm bin) or localtunnel
   lifecycle.ts     preflight, first-run asset build, boot target, openBrowser
   emulator.ts      list AVDs / running devices, boot (headless), tooling checks
   apps.ts          list packages / launch app / foreground app (adb; pure parsers)

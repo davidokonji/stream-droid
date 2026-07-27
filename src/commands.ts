@@ -39,8 +39,9 @@ Options:
   -v, --verbose              print debug logs (frames, control) + timestamps
   -t, --tunnel               expose a public link + console QR (view-only)
   -tc, --tunnel-control      tunnel with a controllable shared link
-      --tunnel-backend <b>   cloudflared | localtunnel | auto (default: cloudflared if installed).
-                             cloudflared has no visitor reminder page; localtunnel needs no install.
+      --tunnel-backend <b>   cloudflared | localtunnel | auto (default). auto prefers
+                             cloudflared (no visitor reminder page; binary auto-fetched),
+                             falling back to localtunnel.
 
 Env: PORT · ANDROID_SERIAL · CAPTURE · SCRCPY_SERVER_JAR · SCRCPY_CONTROL ·
      STREAM_DROID_HEADLESS · STREAM_DROID_VERBOSE
