@@ -68,10 +68,16 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version & tag
+      # Bump package.json, then propagate that version into the plugin manifests +
+      # skill docs (version:sync) so the CI guard stays green, and commit + tag the
+      # lot as one release commit.
+      - name: Bump version, sync manifests & tag
         id: version
         run: |
-          NEW=$(npm version ${{ inputs.release_type }} -m "release: %s [skip beta]")
+          NEW=$(npm version ${{ inputs.release_type }} --no-git-tag-version)
+          bun run version:sync
+          git commit -am "release: ${NEW} [skip beta]"
+          git tag -a "${NEW}" -m "release: ${NEW} [skip beta]"
           echo "version=${NEW#v}" >> "$GITHUB_OUTPUT"
           echo "Releasing stream-droid@${NEW#v} (${{ inputs.release_type }} → dist-tag: latest)"
 

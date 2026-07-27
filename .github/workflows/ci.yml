@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck (tsc)
         run: bun run typecheck
 
+      - name: Version sync (plugin manifests + skills match package.json)
+        run: bun run version:check
+
       - name: Test (bun test)
         run: bun test
 

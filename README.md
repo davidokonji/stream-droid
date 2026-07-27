@@ -183,6 +183,24 @@ npx skills add davidokonji/stream-droid
 project) or `.claude/skills/` (checked into a specific repo). The sibling skills
 share the `drive` skill's scripts, so copy the whole tree, not one folder.
 
+### Updating the skills
+
+**Claude Code** — updates are manual by default (enable per-marketplace
+auto-update under `/plugin` → **Marketplaces** to skip this):
+
+```
+/plugin marketplace update stream-droid     # refresh the catalog from GitHub
+/plugin update stream-droid@stream-droid     # pull the new version
+/reload-plugins                              # load it into the session
+```
+
+Claude Code decides an update is available by comparing the plugin's `version`, so
+a new version only reaches installed users once it's **bumped** — that's automated
+on release and enforced by CI (see [docs/PUBLISHING.md](docs/PUBLISHING.md)).
+
+**skills.sh** — re-run `npx skills add davidokonji/stream-droid`. **Manual** —
+re-copy the `skills/` tree.
+
 Each skill's task references live in its own `references/` folder. Full publishing,
 install, and update details are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 

@@ -170,10 +170,19 @@ auto-update*). To pull a new version:
 ```
 
 Claude Code decides an update is available by comparing the `version` field
-against what's installed — so **every skill/plugin change must bump the version**
-in all four `skills/*/SKILL.md` (`metadata.version`) **and** both
-`.claude-plugin/*.json`, kept in step with `package.json`. skills.sh installs
-update by re-running `npx skills add davidokonji/stream-droid`.
+against what's installed — so the plugin manifests and skill docs must track
+`package.json`. This is **automated and enforced**, not manual:
+
+- `bun run version:sync` writes `package.json`'s version into both
+  `.claude-plugin/*.json` and all four `skills/*/SKILL.md` (`metadata.version`).
+- The **stable release** workflow runs `version:sync` as part of the release
+  commit, so a release bumps everything together.
+- **CI guards it** — `bun run version:check` (part of `bun run check`, and a CI
+  step) fails if any manifest/skill version drifts from `package.json`.
+
+So a normal release keeps them in step automatically; if you ever hand-edit
+`package.json`, run `bun run version:sync` and commit. skills.sh installs update by
+re-running `npx skills add davidokonji/stream-droid`.
 
 ---
 
@@ -248,8 +257,9 @@ bunx stream-droid@beta     # newest beta
 ## Release checklist (stable)
 
 - [ ] CI green on `main`; `npm pack --dry-run` shows `public/client.js`, `public/app.css`, `src/`, `skills/`
-- [ ] If any skill/plugin changed, bump the version in all four `skills/*/SKILL.md`
-      (`metadata.version`) **and** both `.claude-plugin/*.json` to match, and commit to `main` first
+- [ ] Plugin manifests + skills stay in step with `package.json` automatically
+      (`version:sync` runs in the release commit; CI's `version:check` guards it) —
+      no manual version edits needed
 - [ ] Actions tab → **Publish stable** → *Run workflow* → pick `patch` / `minor` / `major`
 - [ ] Confirm the run is green (it bumps, tags, pushes, and publishes `latest`)
 - [ ] Smoke test: `bunx stream-droid@<version> -h`
