@@ -16,6 +16,7 @@ import {
 } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
+import { stopTunnel, tunnelInfo } from './tunnel.ts';
 
 const STATIC: Record<string, string> = {
   '/': 'text/html; charset=utf-8',
@@ -35,6 +36,12 @@ const json = (res: http.ServerResponse, code: number, body: unknown): void => {
   res.writeHead(code, { 'content-type': 'application/json' });
   res.end(JSON.stringify(body));
 };
+
+// A request that arrived over the public relay carries a forwarding header
+// (localtunnel/cloudflared add one); a direct local operator request doesn't.
+// Used to gate token-bearing share data + who may stop the share.
+const isRemote = (req: http.IncomingMessage): boolean =>
+  Boolean(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip']);
 
 function serveStatic(res: http.ServerResponse, path: string): void {
   const file = path === '/' ? '/index.html' : path;
@@ -60,12 +67,39 @@ export function createHttpServer(): http.Server {
     await match({ path, method: req.method })
       // Emulator state for the sidebar.
       .with({ path: '/api/state' }, () => {
+        // The QR / token-bearing share link go only to the local operator or a
+        // token-bearing caller — a view-only viewer over the tunnel must not get
+        // them (they'd decode the QR to escalate). See tunnelInfo(trusted).
+        const trusted = !isRemote(req) || isAuthorized(url);
         json(res, 200, {
           avds: avdStatuses(),
           devices: listDevices(),
           capture: config.CAPTURE,
           target: config.TARGET,
+          tunnel: tunnelInfo(trusted), // whether a public share is live, for the UI
         });
+      })
+      // Stop sharing: close the public tunnel without killing the server. The
+      // local operator can always stop their own share (direct request, and the
+      // `drive` helper sends no token); a viewer coming in over the tunnel
+      // (localtunnel adds x-forwarded-for) needs the control token, so a view-only
+      // recipient can't kill the share.
+      .with({ path: '/api/tunnel', method: 'POST' }, async () => {
+        if (isRemote(req) && !isAuthorized(url)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
+        try {
+          const { action } = JSON.parse((await readBody(req)) || '{}') as { action?: string };
+          if (action !== 'stop') {
+            json(res, 400, { ok: false, error: 'unsupported action — only "stop"' });
+            return;
+          }
+          const stopped = stopTunnel();
+          json(res, 200, { ok: true, stopped, tunnel: tunnelInfo(true) });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
       })
       // Boot an AVD (control-gated).
       .with({ path: '/api/start', method: 'POST' }, async () => {

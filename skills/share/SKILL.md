@@ -3,8 +3,10 @@ name: share
 description: Use when you need to share a live stream-droid session with someone else — expose it as a public URL with a scannable QR, view-only by default or controllable.
 license: MIT
 compatibility: Runs via the `stream-droid` CLI (bun or node ≥ 20); the public relay is localtunnel.
+allowed-tools:
+  - Bash(drive *)
 metadata:
-  version: '0.4.7'
+  version: '0.4.8'
 ---
 
 # share
@@ -31,11 +33,32 @@ npx stream-droid --tunnel-control  # -tc: the shared link can also CONTROL
 
 On start it prints the public link and a QR to scan.
 
-**First visit shows a localtunnel reminder.** On their first open, a recipient
-sees a "You are about to visit…" interstitial from localtunnel (not stream-droid)
-that displays the tunnel's IP and asks them to re-type it to continue — a built-in
-anti-abuse gate on the free relay. It's shown once per visitor; they enter the IP
-shown and proceed, then the session loads. It can't be removed on localtunnel.
+## Stopping the share
+
+Stop sharing **without killing the server** (the emulator keeps running and you can
+keep driving it locally):
+
+```bash
+drive tunnel stop      # close the public link; drive tunnel status shows current state
+```
+
+The local browser also shows a **🔗 Sharing … · Stop sharing** bar while a tunnel
+is live — clicking it does the same. (Killing the whole server process, e.g. Ctrl-C,
+also tears the tunnel down.)
+
+## Relay: cloudflared vs localtunnel
+
+Two backends. **cloudflared** gives a `*.trycloudflare.com` link with **no visitor
+reminder page** — if the `cloudflared` binary is installed, stream-droid uses it by
+default. **localtunnel** needs no install but shows a one-time interstitial (below).
+Force either with `--tunnel-backend cloudflared|localtunnel` (default `auto`).
+
+**localtunnel's first-visit reminder.** On their first open, a recipient of a
+`*.loca.lt` link sees a "You are about to visit…" interstitial from localtunnel
+(not stream-droid) that shows the tunnel's IP and asks them to re-type it — a
+built-in anti-abuse gate on the free relay, shown once per visitor. It **can't** be
+removed on localtunnel; install `cloudflared` (or pass `--tunnel-backend
+cloudflared`) to avoid it entirely.
 
 ## View-only vs control (important)
 

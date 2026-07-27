@@ -63,9 +63,10 @@ src/
   log.ts           leveled logger; quiet by default — only error() prints without -v/--verbose
   adb.ts           adbFor(serial), resolveSerial/targetSerial, deviceSize, sendPoster
   controllers.ts   Control/Incoming types; adb/scrcpy/grpc controllers; pickController
-  httpServer.ts    static assets + /api/{state,start,stop,health,apps,launch,hierarchy} (ts-pattern routes)
+  httpServer.ts    static assets + /api/{state,start,stop,health,tunnel,apps,launch,hierarchy} (ts-pattern routes)
   wsServer.ts      per-connection: stream frames out, route control in
   commands.ts      -h help · -a list · --kill · -l log · --tunnel
+  tunnel.ts        localtunnel lifecycle: open/stop/info (share on/off without killing the server)
   lifecycle.ts     preflight, first-run asset build, boot target, openBrowser
   emulator.ts      list AVDs / running devices, boot (headless), tooling checks
   apps.ts          list packages / launch app / foreground app (adb; pure parsers)

@@ -24,6 +24,7 @@ const VALUE_FLAGS = new Set([
   '--max-size',
   '--bit-rate',
   '--kill',
+  '--tunnel-backend',
 ]);
 
 // Parse a bit-rate like "4000000", "3M", or "800K" → bits/sec (0 if unset/invalid).
@@ -93,6 +94,10 @@ export const config = {
   KILL,
   TUNNEL,
   TUNNEL_CONTROL,
+  // Which relay backs a share: 'cloudflared' (no visitor interstitial) or
+  // 'localtunnel' (no install; shows loca.lt's reminder page). 'auto' prefers
+  // cloudflared when its binary is on PATH, else falls back to localtunnel.
+  TUNNEL_BACKEND: getArg('--tunnel-backend', process.env.STREAM_DROID_TUNNEL_BACKEND ?? 'auto'),
   SECURE,
   CONTROL_TOKEN: SECURE ? randomBytes(16).toString('hex') : '',
   mode: (HELP ? 'help' : LIST ? 'list' : KILL ? 'kill' : LOG ? 'log' : 'serve') as Mode,

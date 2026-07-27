@@ -130,6 +130,7 @@ function help() {
                               (possibly corrupt) saved snapshot and full-boot it
   kill <serial|avd>           shut a running emulator down (POST /api/stop)
   health                      accel/adb/emulator checks + per-device boot readiness
+  tunnel [status|stop]        show the public share, or stop sharing (keeps the server)
   apps [grep]                 list installed packages + current foreground app
   launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
@@ -207,6 +208,29 @@ async function main() {
         }
       } else {
         console.log('(no running devices)');
+      }
+      break;
+    }
+    case 'tunnel': {
+      const sub = rest[0] ?? 'status';
+      if (sub === 'status') {
+        const { tunnel } = await state();
+        console.log(
+          tunnel?.active
+            ? `sharing via ${tunnel.backend ?? 'relay'} (${tunnel.control ? 'control' : 'view-only'})${tunnel.url ? `: ${tunnel.url}` : ''}`
+            : 'not sharing',
+        );
+      } else if (sub === 'stop') {
+        const r = await fetch(`${BASE}/api/tunnel`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'stop' }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) die(`tunnel stop failed: ${j.error ?? r.status}`);
+        console.log(j.stopped ? 'stopped sharing' : 'no active tunnel');
+      } else {
+        die(`unknown tunnel subcommand "${sub}" (use: status | stop)`);
       }
       break;
     }

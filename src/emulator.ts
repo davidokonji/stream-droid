@@ -7,6 +7,9 @@ export interface AvdStatus {
   running: boolean;
   serial: string | null; // adb serial when running, e.g. "emulator-5554"
   headless: boolean; // running windowless (-no-window) — its "close" fully kills it
+  // Emulator (bootable/killable here) vs a physical device (adb-attached, can't be
+  // `emu kill`ed — the UI offers no shutdown for it). Stopped AVDs are emulators.
+  emulator: boolean;
   booted: boolean | null;
   bootError: string | null;
 }
@@ -110,7 +113,17 @@ export function listDevices(): DeviceInfo[] {
           .split('\n')[0]!
           .trim() || serial;
     } catch {
-      /* physical device / no console */
+      // Physical device / no emulator console — show the model name (e.g. "Pixel 7")
+      // instead of the raw serial where we can read it.
+      try {
+        avd =
+          execFileSync('adb', ['-s', serial, 'shell', 'getprop', 'ro.product.model'], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+          }).trim() || serial;
+      } catch {
+        /* leave as the serial */
+      }
     }
     devices.push({ serial, avd });
   }
@@ -161,6 +174,9 @@ export function avdStatuses(): AvdStatus[] {
       running: bySerial.has(name),
       serial: bySerial.get(name) ?? null,
       headless: bySerial.has(name) && (bootedHeadless.has(name) || ps.has(name)),
+      // Running via an `emulator-NNNN` serial ⇒ an emulator; stopped AVDs (from
+      // -list-avds) are emulators too. A physical device's serial is anything else.
+      emulator: bySerial.has(name) ? (bySerial.get(name) ?? '').startsWith('emulator-') : true,
       booted: bySerial.has(name) ? (booted.get(bySerial.get(name)!) ?? false) : null,
       bootError: bySerial.has(name) ? null : (bootErrors.get(name) ?? null),
     }))
