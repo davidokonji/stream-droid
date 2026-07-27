@@ -6,6 +6,7 @@ compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emula
 allowed-tools:
   - Bash(drive *)
   - Bash(stream-droid-server)
+  - Bash(stream-droid-server *)
 metadata:
   version: '0.4.6'
 ---
@@ -31,11 +32,12 @@ Once a device is running, drive it with the **`/stream-droid:drive`** skill.
 ## Prerequisites
 
 A server (emulator management goes through its API). If one isn't up, start it
-quietly:
+quietly (and stop it when you're done — it runs in the background):
 
 ```bash
-stream-droid-server
-# from a clone: node skills/drive/scripts/ensure-server.mjs
+stream-droid-server          # start (headless)
+stream-droid-server --stop   # stop when done
+# from a clone: node skills/drive/scripts/ensure-server.mjs [--stop]
 ```
 
 ## Commands

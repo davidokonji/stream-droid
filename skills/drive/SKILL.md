@@ -6,6 +6,7 @@ compatibility: Requires `adb` and a running device; the helper scripts run on no
 allowed-tools:
   - Bash(drive *)
   - Bash(stream-droid-server)
+  - Bash(stream-droid-server *)
   - Bash(stream-droid-check)
 metadata:
   version: '0.4.6'
@@ -45,8 +46,13 @@ Get a server ready — this starts it headless if one isn't already up, and stay
 quiet:
 
 ```bash
-stream-droid-server        # runs under node (or bun)
+stream-droid-server        # start (headless, in the background)
+stream-droid-server --stop # stop it when you're done — don't leave it running
 ```
+
+The server is a background process, so **stop it with `--stop` once you've finished
+driving** rather than leaving it lingering. (Any booted emulators are separate —
+shut those down with `/stream-droid:emulators` `kill`.)
 
 Optionally sanity-check the whole setup (node/bun, adb, a device, the server):
 

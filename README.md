@@ -153,6 +153,7 @@ stream-droid-check                     # verify prerequisites
 drive shot                # screen.png
 drive ui internet         # elements matching "internet"
 drive tap:text "Network & internet"
+stream-droid-server --stop      # stop the background server when done
 ```
 
 The helper scripts are plain ESM and run under **bun or node ≥ 18**.

@@ -69,6 +69,17 @@ export function createHttpServer(): http.Server {
           tunnel: tunnelInfo(!isRemote(req)), // share panel is host-only
         });
       })
+      // Shut the server down (host only) — lets an agent tear down the background
+      // server it started so it doesn't linger. Closes any tunnel; emulators stay.
+      .with({ path: '/api/shutdown', method: 'POST' }, () => {
+        if (isRemote(req)) {
+          json(res, 403, { ok: false, error: 'only the host can stop the server' });
+          return;
+        }
+        stopTunnel();
+        res.on('finish', () => setTimeout(() => process.exit(0), 30));
+        json(res, 200, { ok: true });
+      })
       // Stop sharing without killing the server — host only (see isRemote).
       .with({ path: '/api/tunnel', method: 'POST' }, async () => {
         if (isRemote(req)) {

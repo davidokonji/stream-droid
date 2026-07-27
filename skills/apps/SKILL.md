@@ -6,6 +6,7 @@ compatibility: Requires `adb` and a running device + stream-droid server; the he
 allowed-tools:
   - Bash(drive *)
   - Bash(stream-droid-server)
+  - Bash(stream-droid-server *)
 metadata:
   version: '0.4.6'
 ---
@@ -25,11 +26,13 @@ drive it with the **`/stream-droid:drive`** skill.
 
 ## Prerequisites
 
-A device and a server. If one isn't up yet, start it:
+A device and a server. If one isn't up yet, start it (and stop it when done — it
+runs in the background):
 
 ```bash
-stream-droid-server
-# from a clone: node skills/drive/scripts/ensure-server.mjs
+stream-droid-server          # start (headless)
+stream-droid-server --stop   # stop when done
+# from a clone: node skills/drive/scripts/ensure-server.mjs [--stop]
 ```
 
 ## Commands
