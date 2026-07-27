@@ -2,7 +2,7 @@
 name: emulators
 description: Use when you need an Android emulator running to build/test a mobile app (Expo, React Native, Flutter, native Android) — list, boot (optionally headless), or shut down AVDs for a stream-droid session, e.g. start a specific AVD before driving it, see what's running, or kill one when done.
 license: MIT
-compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Goes through the drive skill's helper (bun or node ≥ 18).
+compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Goes through the drive skill's helper (node or bun ≥ 18).
 metadata:
   version: '0.4.2'
 ---
@@ -31,8 +31,8 @@ A server (emulator management goes through its API). If one isn't up, the drive
 skill's helper starts it quietly:
 
 ```bash
-bun "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/ensure-server.mjs"
-# from a clone: bun skills/drive/scripts/ensure-server.mjs
+node "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/ensure-server.mjs"
+# from a clone: node skills/drive/scripts/ensure-server.mjs
 ```
 
 ## Commands
@@ -42,9 +42,9 @@ server's API, so you don't run the CLI or the server yourself:
 
 ```bash
 D="$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs"   # clone: skills/drive/scripts/drive.mjs
-bun "$D" avds                     # list every AVD: 🟢 running / ⚪ stopped (+ serial)
-bun "$D" boot Pixel_9 --headless  # boot an AVD (omit --headless for a windowed one)
-bun "$D" kill Pixel_9             # shut a running emulator down (serial or AVD name)
+node "$D" avds                     # list every AVD: 🟢 running / ⚪ stopped (+ serial)
+node "$D" boot Pixel_9 --headless  # boot an AVD (omit --headless for a windowed one)
+node "$D" kill Pixel_9             # shut a running emulator down (serial or AVD name)
 ```
 
 - **`avds`** answers "what's running?" from the live server state — no CLI needed.

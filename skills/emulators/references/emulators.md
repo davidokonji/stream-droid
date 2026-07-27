@@ -7,13 +7,13 @@ accepted; matching is case-insensitive. AVDs are listed/booted with the SDK
 devices come from `adb devices`.
 
 Manage them through the shared `drive.mjs` helper, which uses the server's API —
-so there's nothing to run from source. `bun scripts/drive.mjs …` from the drive
-skill dir (or `bun skills/drive/scripts/drive.mjs …` from a clone).
+so there's nothing to run from source. `node scripts/drive.mjs …` from the drive
+skill dir (or `node skills/drive/scripts/drive.mjs …` from a clone).
 
 ## List
 
 ```bash
-bun scripts/drive.mjs avds
+node scripts/drive.mjs avds
 # ⚪ stopped  Galaxy_Samsung_A55
 # 🟢 running  Pixel_9  emulator-5554
 # ⚪ stopped  Pixel_7_API_34
@@ -25,7 +25,7 @@ Reads `GET /api/state`, which returns `avds` (name/running/serial), `devices`
 ## Boot
 
 ```bash
-bun scripts/drive.mjs boot Pixel_9 --headless   # omit --headless for a windowed one
+node scripts/drive.mjs boot Pixel_9 --headless   # omit --headless for a windowed one
 ```
 
 Posts to `POST /api/start` with `{ "avd": "Pixel_9", "headless": true }`. Headless
@@ -36,7 +36,7 @@ also click **Start** on a ⚪ row in the browser sidebar.)
 ## Kill
 
 ```bash
-bun scripts/drive.mjs kill Pixel_9        # or a serial; emulators only
+node scripts/drive.mjs kill Pixel_9        # or a serial; emulators only
 ```
 
 Posts to `POST /api/stop`, which runs `adb -s <serial> emu kill`. Physical devices

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // drive.mjs — one-shot control of a running stream-droid session, for agents.
-// Runs under bun or node ≥ 18. The server must be running locally
-// (e.g. `bun run src/server.ts -d`).
+// Runs under node (≥ 18; control commands need ≥ 22 for WebSocket) or bun. Needs a
+// server running locally — start one with `node scripts/ensure-server.mjs`.
 //
-//   bun scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
+//   node scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
 //   node scripts/drive.mjs <command> …
 //
 // Port: --port or $STREAM_DROID_PORT (default 3200).
@@ -80,7 +80,7 @@ async function getWebSocket() {
 
 async function state() {
   const r = await fetch(`${BASE}/api/state`).catch(() => null);
-  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: bun scripts/ensure-server.mjs`);
+  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: node scripts/ensure-server.mjs`);
   return r.json();
 }
 async function devices() {
@@ -118,7 +118,7 @@ async function control(msg) {
 function help() {
   console.log(`drive.mjs — control a running stream-droid session
 
-  bun scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
+  node scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
   node scripts/drive.mjs <command> …
 
   devices                     list running devices

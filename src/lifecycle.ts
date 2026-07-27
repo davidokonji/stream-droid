@@ -51,11 +51,16 @@ function buildAsset(label: string, cmd: string, args: string[]): void {
   if (r.status !== 0) fail(`${label} build failed`, `try it manually: ${cmd} ${args.join(' ')}`);
 }
 
+const hasBun = (): boolean => spawnSync('bun', ['--version'], { stdio: 'ignore' }).status === 0;
+
 // Build the browser assets on first run so the server works with no separate
-// build step (mirrors `npx serve-sim`'s one-command UX).
+// build step (mirrors `npx serve-sim`'s one-command UX). The published package
+// ships these prebuilt, so this only runs from an unbuilt source checkout.
 export function ensureAssetsBuilt(): void {
+  const bun = hasBun();
   if (!existsSync(join(config.PUBLIC, 'app.css'))) {
-    buildAsset('styles', 'bunx', [
+    // The Tailwind CLI runs under node too — use npx when bun isn't installed.
+    buildAsset('styles', bun ? 'bunx' : 'npx', [
       '@tailwindcss/cli',
       '-i',
       'src/ui/styles.css',
@@ -65,6 +70,15 @@ export function ensureAssetsBuilt(): void {
     ]);
   }
   if (!existsSync(join(config.PUBLIC, 'client.js'))) {
+    // The client bundle is built with `bun build` — bun's bundler handles
+    // jmuxer's UMD default export, which esbuild can't. Running the tool needs no
+    // bun (the npm package ships this prebuilt); only building from source does.
+    if (!bun) {
+      fail(
+        'the client bundle needs building and bun is not installed',
+        'Build it once with `bun run build`, or use the published package — `npx stream-droid` ships it prebuilt.',
+      );
+    }
     buildAsset('client', 'bun', [
       'build',
       'src/client.tsx',

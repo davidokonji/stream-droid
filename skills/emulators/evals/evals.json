@@ -6,7 +6,7 @@
       "name": "boot-specific-avd-headless",
       "prompt": "Start my Pixel_9 emulator without a window so I can drive it for a test.",
       "expected_behavior": [
-        "Boots the named AVD via the drive helper — `bun scripts/drive.mjs boot Pixel_9 --headless` (POST /api/start), starting the server first with ensure-server.mjs if needed.",
+        "Boots the named AVD via the drive helper — `node scripts/drive.mjs boot Pixel_9 --headless` (POST /api/start), starting the server first with ensure-server.mjs if needed.",
         "Does NOT run the server from source (`bun run src/server.ts`) or the raw CLI — it goes through the existing API via the helper.",
         "Understands the emulator can take ~20–60 s to come online; polls `avds`/`devices` until it shows running.",
         "Does NOT tap or drive before the device is running — that's the `/stream-droid:drive` skill, once it's up."
@@ -18,7 +18,7 @@
       "name": "list-running-and-available",
       "prompt": "What emulators do I have and which are running?",
       "expected_behavior": [
-        "Answers from the server API via the helper — `bun scripts/drive.mjs avds` (reads /api/state), ensuring a server with ensure-server.mjs first if needed.",
+        "Answers from the server API via the helper — `node scripts/drive.mjs avds` (reads /api/state), ensuring a server with ensure-server.mjs first if needed.",
         "Does NOT run the server from source (`bun run src/server.ts -a`) or expose that command — that's a contributor-only invocation, not the way to answer.",
         "Reports each AVD's running/stopped state from the helper's output."
       ],
@@ -29,7 +29,7 @@
       "name": "kill-emulator-only",
       "prompt": "Shut down the Pixel_9 emulator, and also power off my physical phone the same way.",
       "expected_behavior": [
-        "Runs `bun scripts/drive.mjs kill Pixel_9` (POST /api/stop) to shut the emulator down.",
+        "Runs `node scripts/drive.mjs kill Pixel_9` (POST /api/stop) to shut the emulator down.",
         "Explains that this uses `adb emu kill` — emulators only — so a physical device can't be powered off this way.",
         "Does not claim to have killed the physical device."
       ],

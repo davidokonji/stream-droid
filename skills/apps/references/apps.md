@@ -7,8 +7,8 @@ physical devices.
 ## List installed packages + the foreground app
 
 ```bash
-bun skills/drive/scripts/drive.mjs apps          # all packages + current foreground
-bun skills/drive/scripts/drive.mjs apps settings # filter by a case-insensitive substring
+node skills/drive/scripts/drive.mjs apps          # all packages + current foreground
+node skills/drive/scripts/drive.mjs apps settings # filter by a case-insensitive substring
 ```
 
 - Packages come from `adb shell pm list packages` (the `package:` prefix stripped).
@@ -18,7 +18,7 @@ bun skills/drive/scripts/drive.mjs apps settings # filter by a case-insensitive 
 ## Launch an app
 
 ```bash
-bun skills/drive/scripts/drive.mjs launch com.android.settings
+node skills/drive/scripts/drive.mjs launch com.android.settings
 ```
 
 Launches by package name via its default launcher activity
