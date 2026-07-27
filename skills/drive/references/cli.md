@@ -21,7 +21,7 @@ If it's a stopped AVD, it's booted and streamed once online.
 | `-h`, `--help` | print usage and exit |
 | `-a`, `--list` | list running streams + stopped AVDs |
 | `--kill [name]` | shut down a running emulator (emulators only) |
-| `-l`, `--log` | stream the device's logcat, colourised by level (no HTTP server) |
+| `-l`, `--log`, `--logcat` | stream the device's logcat, colourised by level (no HTTP server) |
 
 `--kill`/`-l` target the `[name]`/positional/`--serial`, else the first device.
 

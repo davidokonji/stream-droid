@@ -25,6 +25,10 @@ export async function stopEmulator(serial: string): Promise<void> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ serial }),
   });
-  const out = (await res.json()) as { ok: boolean; error?: string };
-  if (!out.ok) throw new Error(out.error ?? 'failed to stop emulator');
+  // Parse defensively: an older server without this route replies with a plain
+  // "not found" body, so res.json() would throw — surface the status instead.
+  const out = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (!res.ok || !out?.ok) {
+    throw new Error(out?.error ?? `stop failed (${res.status}) — is the server up to date?`);
+  }
 }

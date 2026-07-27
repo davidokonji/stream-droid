@@ -26,6 +26,7 @@ Run from the skill dir (`bun scripts/drive.mjs …`) or a clone
 | `devices` | list running devices |
 | `shot [file]` | save a screenshot PNG (default `screen.png`) |
 | `record [secs] [file]` | record the screen to MP4 (default 10s, `screen.mp4`) |
+| `logcat [grep] [--lines N]` | pretty-print recent device logcat (default 200 lines) |
 | `ui [grep]` | list UI elements (`•` = clickable); optional text filter |
 | `tap:text "<text>"` | tap the element whose text/desc contains `<text>` |
 | `tap:id <resource-id>` | tap by resource-id (full or tail after `/`) |

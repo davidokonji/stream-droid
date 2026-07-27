@@ -23,6 +23,7 @@ const layout = tv({
     main: 'flex min-w-0 flex-col items-center justify-center gap-2.5 p-3.5',
     hint: 'text-[12px] opacity-45',
     status: 'flex min-h-[1.2em] items-center gap-2 opacity-55',
+    notice: 'text-[12px] text-amber-300',
   },
   variants: {
     open: { true: { drawer: 'translate-x-0' }, false: { drawer: '-translate-x-full' } },
@@ -41,6 +42,7 @@ export function App() {
   // AVDs this session booted headless (no host window). Closing one of these
   // shuts the emulator down entirely, since there's no window to fall back to.
   const [headlessBooted, setHeadlessBooted] = useState<Set<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
 
   useKeyboard(send, controllable);
 
@@ -76,19 +78,22 @@ export function App() {
   // keeps running, and can be re-streamed from the sidebar).
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
+    setNotice(null);
     const avd = avds.find((a) => a.serial === serial)?.name;
     disconnect();
     if (avd && headlessBooted.has(avd)) {
       try {
         await stopEmulator(serial);
-      } catch {
-        /* device may already be gone */
+        // Only forget the headless flag once the shutdown actually succeeded, so a
+        // failed close still shows "Close" (not "Stop") for a retry.
+        setHeadlessBooted((set) => {
+          const n = new Set(set);
+          n.delete(avd);
+          return n;
+        });
+      } catch (e) {
+        setNotice(`couldn't stop ${avd}: ${(e as Error).message}`);
       }
-      setHeadlessBooted((set) => {
-        const n = new Set(set);
-        n.delete(avd);
-        return n;
-      });
     }
   };
 
@@ -184,6 +189,7 @@ export function App() {
           {live && <LiveDot />}
           {status}
         </div>
+        {notice && <div className={s.notice()}>{notice}</div>}
       </main>
     </div>
   );

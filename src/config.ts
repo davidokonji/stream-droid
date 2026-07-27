@@ -47,7 +47,7 @@ const SECURE = TUNNEL; // gate control behind a token while tunneling
 const CAPTURE = getArg('--capture', process.env.CAPTURE ?? 'screenrecord'); // screenrecord | scrcpy | grpc
 const HELP = hasFlag('-h', '--help');
 const LIST = hasFlag('-a', '--list');
-const LOG = hasFlag('-l', '--log');
+const LOG = hasFlag('-l', '--log', '--logcat');
 // Target device: an adb serial OR an AVD name, from a flag/env or the first bare arg.
 const TARGET = getArg(
   '--serial',

@@ -94,7 +94,7 @@ by default.
 | `stream-droid <name>` | stream that emulator/AVD by default (boots it if stopped) |
 | `-h` / `--help` | print usage and exit |
 | `-a` / `--list` | list running streams (+ stopped AVDs), then exit |
-| `-l` / `--log` | stream the device's logcat, colourised by level (no server) |
+| `-l` / `--log` / `--logcat` | stream the device's logcat, colourised by level (no server) |
 | `--kill [name]` | shut down a running emulator (emulators only), then exit |
 | `-t` / `--tunnel` | expose the server via a public link + QR (**view-only**) |
 | `-tc` / `--tunnel-control` | tunnel, but the shared link can also **control** |
@@ -103,7 +103,7 @@ by default.
 |---|---|---|---|
 | `--port` | `PORT` | `3200` | HTTP + WS port |
 | `-d` / `--headless` | `STREAM_DROID_HEADLESS=1` | off | **don't** auto-open the browser (server still runs) |
-| `-v` / `--verbose` | `STREAM_DROID_VERBOSE=1` | off | show logs — quiet by default (only errors); `-v` prints info/warn/debug (requests, frames, control) + timestamps |
+| `-v` / `--verbose` | `STREAM_DROID_VERBOSE=1` | off | show logs — quiet by default (only errors); `-v` prints info/warn/debug (frames, control) + timestamps |
 | `--serial` / `--emulator` / `--avd` | `ANDROID_SERIAL` | first running device | device to stream (adb serial or AVD name) |
 | `--capture` | `CAPTURE` | `screenrecord` | `screenrecord`, `scrcpy`, or `grpc` (emulator-only) |
 | `--scrcpy-server` | `SCRCPY_SERVER_JAR` | auto-download | scrcpy-server jar; omit to auto-download the pinned v4.1 jar |
