@@ -169,20 +169,21 @@ auto-update*). To pull a new version:
 /plugin update stream-droid@stream-droid     # update the installed plugin
 ```
 
-Claude Code decides an update is available by comparing the **marketplace
-listing's** `version` against what's installed — so that version must advance
-**only on a stable release**, never on a dev bump. This is automated and enforced:
+Claude Code decides an update is available by comparing the **published plugin
+version** against what's installed — so that version must advance **only on a
+stable release**, never on a dev bump. This is automated and enforced:
 
-- `bun run version:sync` (dev, and part of `bun run check`) writes `package.json`'s
-  version into `.claude-plugin/plugin.json` and all four `skills/*/SKILL.md`
-  (`metadata.version`) — but **leaves `.claude-plugin/marketplace.json` alone**, so
-  in-progress branch work never advertises itself to installed users.
-- `bun run version:release` additionally bumps `marketplace.json`. Only the
-  **stable release** workflow runs it (after `npm version`), so the marketplace
-  advances exactly once per release.
-- **CI guards it** — `bun run version:check` fails if plugin.json/skill versions
-  drift from `package.json`, or if the marketplace version gets *ahead* of it
-  (between releases it lags, which is expected).
+- The published plugin version is `.claude-plugin/plugin.json` (the manifest) +
+  `.claude-plugin/marketplace.json` (the listing). `bun run version:sync` (dev, and
+  part of `bun run check`) **leaves both alone**, so in-progress branch work never
+  advertises itself to installed users. Sync only updates the four
+  `skills/*/SKILL.md` (`metadata.version`, kept `== package.json` for npm).
+- `bun run version:release` bumps `plugin.json` + `marketplace.json` too. Only the
+  **stable release** workflow runs it (after `npm version`), so the published
+  version advances exactly once per release.
+- **CI guards it** — `bun run version:check` fails if skill versions drift from
+  `package.json`, or if `plugin.json`/`marketplace.json` get *ahead* of it (between
+  releases they lag at the last released version, which is expected).
 
 If you hand-edit `package.json`, run `bun run version:sync` and commit. skills.sh
 installs update by re-running `npx skills add davidokonji/stream-droid`.

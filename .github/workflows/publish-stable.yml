@@ -68,9 +68,9 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # Bump package.json, then propagate that version into the plugin manifests +
-      # skill docs AND the marketplace listing (version:release) — the marketplace
-      # only ever advances here, on a stable release. Commit + tag as one release.
+      # Bump package.json, then version:release: sync skill docs AND advance the
+      # published plugin version (plugin.json + marketplace.json). The published
+      # version only ever moves here, on a stable release. Commit + tag as one.
       - name: Bump version, sync manifests & tag
         id: version
         run: |
