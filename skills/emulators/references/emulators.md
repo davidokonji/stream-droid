@@ -6,40 +6,41 @@ accepted; matching is case-insensitive. AVDs are listed/booted with the SDK
 `emulator` binary (found via `ANDROID_HOME`/`ANDROID_SDK_ROOT` or PATH); running
 devices come from `adb devices`.
 
+Manage them through the shared `drive.mjs` helper, which uses the server's API —
+so there's nothing to run from source. `bun scripts/drive.mjs …` from the drive
+skill dir (or `bun skills/drive/scripts/drive.mjs …` from a clone).
+
 ## List
 
 ```bash
-npx stream-droid -a
-# Running streams (1):
-#   emulator-5554    Pixel_9                  emulator
-# Stopped AVDs: Galaxy_Samsung_A55, Pixel_7_API_34, Small_Phone_API_34
+bun scripts/drive.mjs avds
+# ⚪ stopped  Galaxy_Samsung_A55
+# 🟢 running  Pixel_9  emulator-5554
+# ⚪ stopped  Pixel_7_API_34
 ```
 
-Or over HTTP while the server runs: `GET /api/state` returns `avds`
-(name/running/serial), `devices` (serial/avd), and the pinned `target`.
+Reads `GET /api/state`, which returns `avds` (name/running/serial), `devices`
+(serial/avd), and the pinned `target`.
 
 ## Boot
 
-- **CLI:** name a stopped AVD; it boots and streams once online:
-  `npx stream-droid Pixel_9`.
-- **Sidebar:** click **Start** on a ⚪ row (tick **headless** first for no host
-  window).
-- **API:** `POST /api/start` with `{ "avd": "Pixel_9", "headless": true }`.
+```bash
+bun scripts/drive.mjs boot Pixel_9 --headless   # omit --headless for a windowed one
+```
 
-Booting an AVD with **headless** runs `emulator -avd <name> -no-window -no-audio`
-— fully adb/stream-capable with no GUI on the host. Boot takes ~20–60 s; the
-sidebar polls `/api/state` every 3 s and flips 🟢/⚪.
-
-> The server's `-d`/`--headless` (don't open the browser) is a **different**
-> thing from the *emulator's* headless boot (`-no-window`).
+Posts to `POST /api/start` with `{ "avd": "Pixel_9", "headless": true }`. Headless
+runs `emulator -avd <name> -no-window -no-audio` — fully adb/stream-capable with no
+GUI on the host. Boot takes ~20–60 s; poll `avds` until it flips to 🟢. (You can
+also click **Start** on a ⚪ row in the browser sidebar.)
 
 ## Kill
 
 ```bash
-npx stream-droid --kill Pixel_9        # or a serial; emulators only
+bun scripts/drive.mjs kill Pixel_9        # or a serial; emulators only
 ```
 
-Uses `adb -s <serial> emu kill`. Physical devices can't be shut down this way.
+Posts to `POST /api/stop`, which runs `adb -s <serial> emu kill`. Physical devices
+can't be shut down this way.
 
 ## Which device gets streamed
 

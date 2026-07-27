@@ -2,7 +2,7 @@
 name: emulators
 description: Use when you need an Android emulator running to build/test a mobile app (Expo, React Native, Flutter, native Android) — list, boot (optionally headless), or shut down AVDs for a stream-droid session, e.g. start a specific AVD before driving it, see what's running, or kill one when done.
 license: MIT
-compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Runs via the `stream-droid` CLI (bun or node ≥ 20).
+compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Goes through the drive skill's helper (bun or node ≥ 18).
 metadata:
   version: '0.4.2'
 ---
@@ -25,33 +25,40 @@ Once a device is running, drive it with the **`/stream-droid:drive`** skill.
 - You want a headless emulator (no host window — adb/stream only).
 - You're done and want to shut an emulator down.
 
-## Commands
+## Prerequisites
 
-Use the `stream-droid` CLI — run it with `npx stream-droid …` (or
-`bunx stream-droid …`), which works without a global install.
+A server (emulator management goes through its API). If one isn't up, the drive
+skill's helper starts it quietly:
 
 ```bash
-npx stream-droid -a                 # list running streams + stopped AVDs, then exit
-npx stream-droid Pixel_9 -d         # boot Pixel_9 (if stopped) and stream it, headless
-npx stream-droid Pixel_9 --headless # same — the emulator boots with no host window
-npx stream-droid --kill Pixel_9     # shut a running emulator down (emulators only)
+bun "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/ensure-server.mjs"
+# from a clone: bun skills/drive/scripts/ensure-server.mjs
 ```
 
-- Naming a **stopped** AVD boots it, then streams once it's online (~20–60 s).
-- `-d` / `--headless` starts the server without opening a browser; the emulator
-  itself boots windowless. (These are two different "headless" notions — see the
-  reference.)
-- `--kill` uses `adb emu kill`; physical devices can't be shut down this way.
+## Commands
 
-`npx stream-droid -a` is the quickest answer to "what's running" — it lists and
-exits without leaving a server up.
+Use the shared `drive.mjs` helper (in the `drive` skill) — it talks to the
+server's API, so you don't run the CLI or the server yourself:
+
+```bash
+D="$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs"   # clone: skills/drive/scripts/drive.mjs
+bun "$D" avds                     # list every AVD: 🟢 running / ⚪ stopped (+ serial)
+bun "$D" boot Pixel_9 --headless  # boot an AVD (omit --headless for a windowed one)
+bun "$D" kill Pixel_9             # shut a running emulator down (serial or AVD name)
+```
+
+- **`avds`** answers "what's running?" from the live server state — no CLI needed.
+- **`boot`** starts the AVD; it takes ~20–60 s to come online. Poll `avds` (or the
+  drive skill's `devices`) until it shows 🟢, then drive it with **`/stream-droid:drive`**.
+- **`kill`** uses `adb emu kill` under the hood; physical devices can't be shut down
+  this way.
 
 ## Common mistakes
 
 - **No SDK `emulator` / no AVDs.** Listing and booting AVDs needs the SDK
   `emulator` binary (via `ANDROID_HOME`/`ANDROID_SDK_ROOT` or `PATH`) and at least
   one AVD. Streaming an already-running device works without it.
-- **Trying to `--kill` a physical device.** Only emulators respond to `adb emu kill`.
+- **Trying to `kill` a physical device.** Only emulators respond to `adb emu kill`.
 
 ## Reference
 

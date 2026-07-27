@@ -78,10 +78,13 @@ async function getWebSocket() {
   }
 }
 
-async function devices() {
+async function state() {
   const r = await fetch(`${BASE}/api/state`).catch(() => null);
-  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — is it running? (bun run src/server.ts -d)`);
-  return (await r.json()).devices;
+  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: bun scripts/ensure-server.mjs`);
+  return r.json();
+}
+async function devices() {
+  return (await state()).devices;
 }
 
 async function resolveSerial() {
@@ -119,6 +122,9 @@ function help() {
   node scripts/drive.mjs <command> …
 
   devices                     list running devices
+  avds [grep]                 list AVDs with running/stopped state (via the server API)
+  boot <avd> [--headless]     boot an AVD (POST /api/start)
+  kill <serial|avd>           shut a running emulator down (POST /api/stop)
   apps [grep]                 list installed packages + current foreground app
   launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
@@ -146,6 +152,47 @@ async function main() {
     case 'devices': {
       const devs = await devices();
       console.log(devs.length ? devs.map((d) => `${d.serial}  ${d.avd}`).join('\n') : 'no running devices');
+      break;
+    }
+    case 'avds': {
+      const { avds } = await state();
+      const grep = rest[0]?.toLowerCase();
+      const rows = avds.filter((a) => !grep || a.name.toLowerCase().includes(grep));
+      console.log(
+        rows.length
+          ? rows
+              .map((a) => `${a.running ? '🟢 running' : '⚪ stopped'}  ${a.name}${a.serial ? `  ${a.serial}` : ''}`)
+              .join('\n')
+          : 'no AVDs found',
+      );
+      break;
+    }
+    case 'boot': {
+      const headless = rest.includes('--headless') || rest.includes('-d');
+      const avd = need(
+        rest.find((a) => !a.startsWith('-')),
+        'avd name',
+      );
+      const r = await fetch(`${BASE}/api/start`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ avd, headless }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) die(`boot failed: ${j.error ?? r.status}`);
+      console.log(`booting ${avd}${headless ? ' (headless)' : ''}… (~20–60s to come online)`);
+      break;
+    }
+    case 'kill': {
+      const target = need(rest[0], 'serial or avd name');
+      const r = await fetch(`${BASE}/api/stop`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ serial: target }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) die(`kill failed: ${j.error ?? r.status}`);
+      console.log(`killed ${j.serial ?? target}`);
       break;
     }
     case 'shot': {
