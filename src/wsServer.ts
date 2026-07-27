@@ -81,6 +81,7 @@ export function attachWebSocket(server: http.Server): void {
       capture = startCapture(
         serial,
         adbArgs,
+        size,
         (chunk) => {
           if (ws.readyState === ws.OPEN) ws.send(chunk); // binary frame (H.264 or PNG)
           frames++;

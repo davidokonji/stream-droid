@@ -106,6 +106,8 @@ by default.
 | `-v` / `--verbose` | `STREAM_DROID_VERBOSE=1` | off | show logs — quiet by default (only errors); `-v` prints info/warn/debug (frames, control) + timestamps |
 | `--serial` / `--emulator` / `--avd` | `ANDROID_SERIAL` | first running device | device to stream (adb serial or AVD name) |
 | `--capture` | `CAPTURE` | `screenrecord` | `screenrecord`, `scrcpy`, or `grpc` (emulator-only) |
+| `--max-size` | `STREAM_DROID_MAX_SIZE` | `0` (native) | downscale capture so its longer edge ≤ px (h264 backends) — cuts encode cost + bandwidth |
+| `--bit-rate` | `STREAM_DROID_BIT_RATE` | backend default | encoder bit-rate, e.g. `4000000`, `3M`, `800K` (h264 backends) |
 | `--scrcpy-server` | `SCRCPY_SERVER_JAR` | auto-download | scrcpy-server jar; omit to auto-download the pinned v4.1 jar |
 | `--scrcpy-control` | `SCRCPY_CONTROL` | `on` | `off` routes input via `adb input` even in scrcpy mode |
 

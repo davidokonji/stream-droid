@@ -30,10 +30,17 @@ export interface CaptureOptions {
   adbArgs: (...rest: string[]) => string[];
   onChunk: (chunk: Buffer) => void;
   onError?: (err: Error) => void;
+  // Encoder bit-rate in bits/sec (0 = the backend's default).
+  bitRate?: number;
+  // Pre-scaled capture resolution as "WxH" (screenrecord's --size). Undefined =
+  // native. scrcpy scales itself from `maxSize` instead (see ScrcpyOptions).
+  size?: string;
 }
 
 export interface ScrcpyOptions extends CaptureOptions {
   serverJar: string;
+  // Cap the longer edge in px (0 = unlimited); scrcpy preserves aspect ratio.
+  maxSize?: number;
   port?: number;
   // Open scrcpy's control socket for low-latency input injection (client→server
   // binary control messages) instead of routing input through `adb input`.
