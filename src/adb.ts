@@ -1,7 +1,7 @@
 // adb / device helpers: build device-scoped adb argv, resolve which device to
 // stream, read the display size, and grab a poster screenshot.
 
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import type { WebSocket } from 'ws';
 import { config } from './config.ts';
 import { logger } from './log.ts';
@@ -30,8 +30,16 @@ export function resolveSerial(requested?: string | null): string {
 }
 
 // `wm size` → "Physical size: 1080x2400" (may also report an Override size).
+// Uses spawnSync (not execFileSync) so that while an emulator is still booting —
+// online to adb but with no `window` service yet — adb's "Can't find service:
+// window" stderr is captured into the thrown error (which the caller classifies
+// as still-booting) instead of being inherited straight to our console. The boot
+// wait retries this call, so an inherited stderr would spam the terminal.
 export function deviceSize(serial: string): CaptureMeta {
-  const out = execFileSync('adb', adbFor(serial)('shell', 'wm', 'size'), { encoding: 'utf8' }).trim();
+  const r = spawnSync('adb', adbFor(serial)('shell', 'wm', 'size'), { encoding: 'utf8' });
+  if (r.error) throw r.error;
+  if (r.status !== 0) throw new Error((r.stderr || r.stdout || `adb wm size exited ${r.status}`).trim());
+  const out = (r.stdout ?? '').trim();
   const m = out.match(/Override size:\s*(\d+)x(\d+)/) ?? out.match(/Physical size:\s*(\d+)x(\d+)/);
   if (!m) throw new Error(`could not parse device size from: ${out}`);
   return { name: serial, w: Number(m[1]), h: Number(m[2]) };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { tv } from 'tailwind-variants';
 import { fetchState, startAvd, stopEmulator } from './api';
 import { useDeviceStream } from './useDeviceStream';
@@ -37,6 +37,9 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
   const [stopping, setStopping] = useState<Set<string>>(new Set());
+  // When each shutdown started, so a transient adb hiccup during `emu kill` can't
+  // clear "shutting down" before the emulator is really gone (see the poll below).
+  const stoppingSince = useRef<Map<string, number>>(new Map());
   const [notice, setNotice] = useState<string | null>(null);
 
   useKeyboard(send, controllable);
@@ -67,11 +70,13 @@ export function App() {
   // and the next poll drops it; the poll clears `stopping` once it's gone.
   const killDevice = async (dev: string, name: string): Promise<void> => {
     setNotice(null);
+    stoppingSince.current.set(name, Date.now());
     setStopping((s) => new Set(s).add(name));
     disconnect();
     try {
       await stopEmulator(dev);
     } catch (e) {
+      stoppingSince.current.delete(name);
       setStopping((s) => {
         const n = new Set(s);
         n.delete(name);
@@ -117,11 +122,21 @@ export function App() {
           for (const a of st.avds) if (a.running) n.delete(a.name);
           return n.size === b.size ? b : n;
         });
-        // Clear "shutting down" once the emulator has actually stopped.
+        // Clear "shutting down" once the emulator has really stopped. During
+        // `emu kill` the emulator's adb console flakes, so it can momentarily
+        // report not-running and then running again — clearing on that first blip
+        // would flash the "Stream" button. Hold for a short floor so a running
+        // flicker can't clear it early; by then the kill has settled.
         setStopping((s) => {
           if (s.size === 0) return s;
+          const now = Date.now();
           const n = new Set(s);
-          for (const a of st.avds) if (!a.running) n.delete(a.name);
+          for (const a of st.avds) {
+            if (a.running) continue;
+            if (now - (stoppingSince.current.get(a.name) ?? 0) < 2500) continue;
+            n.delete(a.name);
+            stoppingSince.current.delete(a.name);
+          }
           return n.size === s.size ? s : n;
         });
         // The streamed device vanished (emulator closed) — tear the stream down so

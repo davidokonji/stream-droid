@@ -79,8 +79,14 @@ export function listDevices(): DeviceInfo[] {
     if (!serial || state !== 'device') continue;
     let avd = serial;
     try {
+      // stderr → 'ignore': a booting/shutting-down emulator's console isn't always
+      // reachable, and we fall back to the serial anyway — no need to spew adb's
+      // error to our terminal every poll.
       avd =
-        execFileSync('adb', ['-s', serial, 'emu', 'avd', 'name'], { encoding: 'utf8' })
+        execFileSync('adb', ['-s', serial, 'emu', 'avd', 'name'], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        })
           .split('\n')[0]!
           .trim() || serial;
     } catch {
