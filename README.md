@@ -148,11 +148,11 @@ a device through the server:
 The `drive` skill's helper starts the server for you and wraps the loop:
 
 ```bash
-bun skills/drive/scripts/ensure-server.mjs             # start the server headless (if needed)
-bun skills/drive/scripts/check.mjs                     # verify prerequisites
-bun skills/drive/scripts/drive.mjs shot                # screen.png
-bun skills/drive/scripts/drive.mjs ui internet         # elements matching "internet"
-bun skills/drive/scripts/drive.mjs tap:text "Network & internet"
+stream-droid-server             # start the server headless (if needed)
+stream-droid-check                     # verify prerequisites
+drive shot                # screen.png
+drive ui internet         # elements matching "internet"
+drive tap:text "Network & internet"
 ```
 
 The helper scripts are plain ESM and run under **bun or node ≥ 18**.

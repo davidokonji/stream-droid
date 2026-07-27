@@ -4,7 +4,7 @@ description: Use when you need to share a live stream-droid session with someone
 license: MIT
 compatibility: Runs via the `stream-droid` CLI (bun or node ≥ 20); the public relay is localtunnel.
 metadata:
-  version: '0.4.6'
+  version: '0.4.7'
 ---
 
 # share
@@ -30,6 +30,12 @@ npx stream-droid --tunnel-control  # -tc: the shared link can also CONTROL
 ```
 
 On start it prints the public link and a QR to scan.
+
+**First visit shows a localtunnel reminder.** On their first open, a recipient
+sees a "You are about to visit…" interstitial from localtunnel (not stream-droid)
+that displays the tunnel's IP and asks them to re-type it to continue — a built-in
+anti-abuse gate on the free relay. It's shown once per visitor; they enter the IP
+shown and proceed, then the session loads. It can't be removed on localtunnel.
 
 ## View-only vs control (important)
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Bare-name launcher for the stream-droid prerequisite check (node/bun, adb, a
+# device, the server). Same rationale as bin/drive — a bare name keeps
+# $CLAUDE_PLUGIN_ROOT out of the command so it doesn't prompt on every call.
+self=$0
+case $self in
+  */*) ;;
+  *) self=$(command -v -- "$self") ;;
+esac
+root=$(CDPATH= cd -- "$(dirname -- "$self")/.." && pwd)
+exec node "$root/skills/drive/scripts/check.mjs" "$@"

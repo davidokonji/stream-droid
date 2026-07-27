@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // drive.mjs — one-shot control of a running stream-droid session, for agents.
 // Runs under node (≥ 18; control commands need ≥ 22 for WebSocket) or bun. Needs a
-// server running locally — start one with `node scripts/ensure-server.mjs`.
+// server running locally — start one with `stream-droid-server`.
 //
-//   node scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
-//   node scripts/drive.mjs <command> …
+//   drive <command> [args] [--serial <serial|avd>] [--port <n>]
+//   drive <command> …
 //
 // Port: --port or $STREAM_DROID_PORT (default 3200).
 // Device: --serial / $STREAM_DROID_SERIAL, else the first running device.
@@ -25,10 +25,13 @@ const opt = (flag, env) => {
 };
 const PORT = opt('--port', 'STREAM_DROID_PORT') ?? '3200';
 const SERIAL_ARG = opt('--serial', 'STREAM_DROID_SERIAL');
-// Where captured files (screenshots, recordings) land. Default: the active
-// folder — wherever the command was run from — so output stays with the user's
-// work. Override with --out-dir or $STREAM_DROID_OUT_DIR, or pass an explicit path.
-const OUT_DIR = opt('--out-dir', 'STREAM_DROID_OUT_DIR') ?? process.cwd();
+// Where captured files (screenshots, recordings) land, so output stays with the
+// caller's work rather than in a scratch/tmp dir. Prefer the caller's project root
+// ($CLAUDE_PROJECT_DIR, set by Claude Code) so captures are findable even when an
+// agent drives from a temp cwd; fall back to the current folder otherwise. Override
+// with --out-dir or $STREAM_DROID_OUT_DIR, or pass an explicit path.
+const OUT_DIR =
+  opt('--out-dir', 'STREAM_DROID_OUT_DIR') ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 const outPath = (name) => (isAbsolute(name) ? name : resolve(OUT_DIR, name));
 const LINES = opt('--lines') ?? '200'; // logcat: how many recent lines to dump
 const BASE = `http://localhost:${PORT}`;
@@ -80,7 +83,7 @@ async function getWebSocket() {
 
 async function state() {
   const r = await fetch(`${BASE}/api/state`).catch(() => null);
-  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: node scripts/ensure-server.mjs`);
+  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: stream-droid-server`);
   return r.json();
 }
 async function devices() {
@@ -118,8 +121,8 @@ async function control(msg) {
 function help() {
   console.log(`drive.mjs — control a running stream-droid session
 
-  node scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
-  node scripts/drive.mjs <command> …
+  drive <command> [args] [--serial <serial|avd>] [--port <n>]
+  drive <command> …
 
   devices                     list running devices
   avds [grep]                 list AVDs with running/stopped state (via the server API)
@@ -145,8 +148,9 @@ function help() {
                               Search Notifications Power Camera Volume{Up,Down,Mute}
                               Media{PlayPause,Next,Previous}
 
-  Captured files (shot, record) save to the current folder by default; pass a
-  path, or set --out-dir / $STREAM_DROID_OUT_DIR to save elsewhere.`);
+  Captured files (shot, record) save to your project folder by default
+  ($CLAUDE_PROJECT_DIR, else the current folder); pass a path, or set --out-dir /
+  $STREAM_DROID_OUT_DIR to save elsewhere.`);
 }
 
 async function main() {
@@ -193,7 +197,7 @@ async function main() {
     }
     case 'health': {
       const r = await fetch(`${BASE}/api/health`).catch(() => null);
-      if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: node scripts/ensure-server.mjs`);
+      if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: stream-droid-server`);
       const h = await r.json();
       const mark = (ok) => (ok ? '✓' : '✗');
       console.log(`${mark(h.adb)} adb    ${mark(h.emulator)} emulator    ${mark(h.accel.ok)} accel — ${h.accel.detail}`);

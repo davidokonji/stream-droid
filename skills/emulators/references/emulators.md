@@ -6,14 +6,14 @@ accepted; matching is case-insensitive. AVDs are listed/booted with the SDK
 `emulator` binary (found via `ANDROID_HOME`/`ANDROID_SDK_ROOT` or PATH); running
 devices come from `adb devices`.
 
-Manage them through the shared `drive.mjs` helper, which uses the server's API —
-so there's nothing to run from source. `node scripts/drive.mjs …` from the drive
-skill dir (or `node skills/drive/scripts/drive.mjs …` from a clone).
+Manage them through the shared `drive` helper, which uses the server's API — so
+there's nothing to run from source. Call `drive …` by name (on your PATH once the
+plugin is enabled); from a clone, `node skills/drive/scripts/drive.mjs …`.
 
 ## List
 
 ```bash
-node scripts/drive.mjs avds
+drive avds
 # ⚪ stopped  Galaxy_Samsung_A55
 # 🟢 running  Pixel_9  emulator-5554
 # ⚪ stopped  Pixel_7_API_34
@@ -27,7 +27,7 @@ skin name '…'`), so you don't have to guess why it never came online.
 ## Boot
 
 ```bash
-node scripts/drive.mjs boot Pixel_9 --headless   # omit --headless for a windowed one
+drive boot Pixel_9 --headless   # omit --headless for a windowed one
 ```
 
 Posts to `POST /api/start` with `{ "avd": "Pixel_9", "headless": true }`. Headless
@@ -38,7 +38,7 @@ also click **Start** on a ⚪ row in the browser sidebar.)
 ### Cold boot (won't-start recovery)
 
 ```bash
-node scripts/drive.mjs boot Pixel_9 --cold   # adds -no-snapshot-load
+drive boot Pixel_9 --cold   # adds -no-snapshot-load
 ```
 
 Boots take a fast path by loading the AVD's saved `default_boot` snapshot. If that
@@ -57,7 +57,7 @@ boot; cold boot won't fix that, the AVD config will.
 ## Health
 
 ```bash
-node scripts/drive.mjs health
+drive health
 # ✓ adb    ✓ emulator    ✓ accel — Hypervisor.Framework OS X Version 26.5
 # ✓ ready   emulator-5554  Pixel_9
 # ⏳ starting emulator-5556  Galaxy_Samsung_A55
@@ -73,7 +73,7 @@ that it's streamable. The sidebar mirrors this: a running-but-not-ready row show
 ## Kill
 
 ```bash
-node scripts/drive.mjs kill Pixel_9        # or a serial; emulators only
+drive kill Pixel_9        # or a serial; emulators only
 ```
 
 Posts to `POST /api/stop`, which runs `adb -s <serial> emu kill`. Physical devices

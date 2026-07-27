@@ -8,18 +8,18 @@ any resolution or rotation. Prefer element targets (see
 ## Commands
 
 ```bash
-node scripts/drive.mjs tap 0.5 0.5             # tap a normalized point
-node scripts/drive.mjs longpress 0.5 0.5 800   # press and hold (ms optional, default 500)
-node scripts/drive.mjs swipe 0.5 0.8 0.5 0.2   # swipe — this one scrolls up
-node scripts/drive.mjs scroll 0.5 0.5 0.5      # scroll at a point by dy (dx optional)
-node scripts/drive.mjs text "hello world"      # type into the focused field
-node scripts/drive.mjs key Home                # press a named key (below)
-node scripts/drive.mjs tap:text "Network & internet"   # tap by element text/desc
-node scripts/drive.mjs tap:id search                    # tap by resource-id
+drive tap 0.5 0.5             # tap a normalized point
+drive longpress 0.5 0.5 800   # press and hold (ms optional, default 500)
+drive swipe 0.5 0.8 0.5 0.2   # swipe — this one scrolls up
+drive scroll 0.5 0.5 0.5      # scroll at a point by dy (dx optional)
+drive text "hello world"      # type into the focused field
+drive key Home                # press a named key (below)
+drive tap:text "Network & internet"   # tap by element text/desc
+drive tap:id search                    # tap by resource-id
 ```
 
-From a clone the path is `node skills/drive/scripts/drive.mjs …`; installed as a
-plugin, `node "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs" …`.
+Installed as a plugin, `drive` is on your PATH (as above); from a clone, run
+`node skills/drive/scripts/drive.mjs …`.
 
 ## Key names
 
