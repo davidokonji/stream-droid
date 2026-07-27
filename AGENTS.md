@@ -19,13 +19,12 @@ client per device assumed, localhost-first.
 - **Runtime:** [bun](https://bun.sh) ≥ 1.3.11 (pinned in `.bun-version`) **or
   node ≥ 20**. The server is TypeScript run directly — under bun natively, or
   under node via `tsx` (a dependency). `bin/stream-droid.mjs` is the published
-  entry and picks the runtime (`typeof Bun`). **Running is bun-optional** — the
-  npm package ships prebuilt `public/` assets, and the skill helper scripts are
-  node-native. Only **building the client bundle** needs bun (`bun build` handles
-  jmuxer's UMD default export, which esbuild can't); `ensureAssetsBuilt` builds CSS
-  on node (`npx @tailwindcss/cli`) and errors clearly if the client bundle is
-  missing without bun. So from an unbuilt clone, `bun run build` once (or use the
-  published package).
+  entry and picks the runtime (`typeof Bun`). **Fully bun-optional** — server,
+  skill helpers, and the build all run under node or bun. The client bundle is
+  built by `scripts/build-client.mjs` (esbuild; a small plugin wraps jmuxer's UMD
+  so esbuild can extract its default export — see the script), CSS via
+  `npx @tailwindcss/cli`. `ensureAssetsBuilt` builds both on first run under the
+  current runtime; the npm package ships them prebuilt so running never builds.
 - **Language:** TypeScript, `strict`, **no `any`** (enforced by oxlint).
 - **Server deps:** `ws`, `@grpc/grpc-js` + `@grpc/proto-loader`, `ts-pattern`,
   `localtunnel`, `qrcode`.
