@@ -9,12 +9,14 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     window). **Stream** on a running one connects to it.
   - After **Start**, the row shows a spinner + **booting…** until the emulator
     comes online (~20-60 s) — it doesn't silently revert to Start.
-  - The streaming row shows **● LIVE** with a **Close/Stop** button. If the app
-    booted that AVD **headless** (no window), it reads **Close** and shuts the
-    emulator down entirely (`adb emu kill`) — there's no window to fall back to.
-    Otherwise it reads **Stop** and just detaches the stream; the emulator keeps
-    running and can be re-streamed. (Re-selecting the already-live device is a
-    no-op — it doesn't restart the capture.)
+  - The streaming row shows **● LIVE** with a **Close/Stop** button. If the
+    emulator is running **headless** (no window), it reads **Close** and shuts it
+    down entirely (`adb emu kill`) — there's no window to fall back to. Whether
+    it's headless is detected server-side from the emulator's process (`-no-window`),
+    so it's correct even if you didn't boot it from this browser or the server
+    restarted. A windowed emulator reads **Stop** and just detaches the stream; it
+    keeps running and can be re-streamed. (Re-selecting the already-live device is
+    a no-op — it doesn't restart the capture.)
   - While any AVD is booting, the **other** controls are disabled to prevent
     conflicts — every other **Start**, the **Stream** action on running rows, and
     the **headless** toggle go non-interactive (dimmed, `not-allowed` cursor) and

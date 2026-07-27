@@ -14,6 +14,7 @@ export interface AvdStatus {
   name: string; // AVD name, e.g. "Pixel_9"
   running: boolean;
   serial: string | null; // adb serial when running, e.g. "emulator-5554"
+  headless: boolean; // running windowless (-no-window) — its "close" fully kills it
 }
 
 export interface DeviceInfo {
@@ -90,10 +91,33 @@ export function listDevices(): DeviceInfo[] {
   return devices;
 }
 
+// AVD names whose emulator process was launched windowless — read from the process
+// args (`-no-window`, or the `qemu-system-*-headless` binary), so it's correct no
+// matter who booted it or whether the server restarted. `ps` is macOS/Linux; on a
+// platform without it we treat all as windowed (best-effort).
+function headlessAvds(): Set<string> {
+  const set = new Set<string>();
+  try {
+    const ps = execFileSync('ps', ['-ax', '-o', 'command='], {
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    for (const line of ps.split('\n')) {
+      if (!/-no-window|qemu-system-\S*-headless/.test(line)) continue;
+      const m = line.match(/-avd\s+([A-Za-z0-9._-]+)/);
+      if (m) set.add(m[1]!);
+    }
+  } catch {
+    /* ps unavailable (e.g. Windows) — treat as none */
+  }
+  return set;
+}
+
 // Join the AVD list with running state for the sidebar.
 export function avdStatuses(): AvdStatus[] {
   const running = listDevices();
   const bySerial = new Map(running.map((d) => [d.avd, d.serial] as const));
+  const headless = running.length ? headlessAvds() : new Set<string>();
   const names = new Set(listAvds());
   // Include any running AVD that -list-avds didn't report (e.g. ad-hoc).
   for (const d of running) names.add(d.avd);
@@ -101,6 +125,7 @@ export function avdStatuses(): AvdStatus[] {
     name,
     running: bySerial.has(name),
     serial: bySerial.get(name) ?? null,
+    headless: bySerial.has(name) && headless.has(name),
   }));
 }
 

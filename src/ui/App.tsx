@@ -39,8 +39,6 @@ export function App() {
   const [headless, setHeadless] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
-
-  const [headlessBooted, setHeadlessBooted] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
   useKeyboard(send, controllable);
@@ -53,13 +51,6 @@ export function App() {
 
   const startBoot = async (avd: string): Promise<void> => {
     setBooting((b) => new Set(b).add(avd));
-    // Remember whether we booted this one headless, so "close" can shut it down.
-    setHeadlessBooted((set) => {
-      const n = new Set(set);
-      if (headless) n.add(avd);
-      else n.delete(avd);
-      return n;
-    });
     try {
       await startAvd(avd, headless);
     } catch (e) {
@@ -72,21 +63,19 @@ export function App() {
     }
   };
 
+  // Close the streamed device. Headless emulators (no window) are shut down
+  // entirely — whether this session booted them or not, from the server's live
+  // `headless` state; a windowed emulator just detaches (it keeps running).
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
     setNotice(null);
-    const avd = avds.find((a) => a.serial === serial)?.name;
+    const active = avds.find((a) => a.serial === serial);
     disconnect();
-    if (avd && headlessBooted.has(avd)) {
+    if (active?.headless) {
       try {
         await stopEmulator(serial);
-        setHeadlessBooted((set) => {
-          const n = new Set(set);
-          n.delete(avd);
-          return n;
-        });
       } catch (e) {
-        setNotice(`couldn't stop ${avd}: ${(e as Error).message}`);
+        setNotice(`couldn't stop ${active.name}: ${(e as Error).message}`);
       }
     }
   };
@@ -156,7 +145,6 @@ export function App() {
             liveSerial={live ? serial : null}
             booting={booting}
             busy={booting.size > 0}
-            headlessBooted={headlessBooted}
             headless={headless}
             onHeadless={setHeadless}
             onStream={connect}
