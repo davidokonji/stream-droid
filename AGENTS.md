@@ -94,8 +94,9 @@ skills/            the `stream-droid` plugin — four agent skills (namespaced /
 
 Skills reuse `drive`'s scripts via `$CLAUDE_PLUGIN_ROOT`, so they ship together.
 Server protocol/pipeline internals stay in the code + `docs/`, not the skill
-surface. Bump the version in all four `SKILL.md` + `.claude-plugin/*.json` on any
-skill change.
+surface. Don't hand-bump skill/plugin versions on a change — the **published plugin
+version** (`SKILL.md` + `.claude-plugin/*.json`) advances only on a stable release
+(`version:release`, run by publish-stable); CI's `version:check` guards it.
 
 ## Conventions (follow these)
 

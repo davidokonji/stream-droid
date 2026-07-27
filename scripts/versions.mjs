@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-// Keep versions consistent across the plugin.
+// Guard/advance the published plugin version.
 //
-//   node scripts/versions.mjs            # sync skill-doc versions to package.json
-//   node scripts/versions.mjs --check    # assert versions are consistent (CI guard)
-//   node scripts/versions.mjs --release  # ALSO advance the published plugin version
+//   node scripts/versions.mjs --check    # assert the published version is consistent
+//                                         # and not ahead of package.json (CI guard)
+//   node scripts/versions.mjs --release  # advance it to package.json's version
 //
-// The published plugin version — .claude-plugin/plugin.json (manifest) +
-// marketplace.json (listing) — is what Claude Code installs and updates against, so
-// it advances ONLY on a stable release (--release, run by publish-stable), never on
-// a dev bump. Between releases it lags package.json; --check just rejects it getting
-// *ahead*. Skill-doc versions track package.json (they don't gate updates).
+// The published plugin version — .claude-plugin/plugin.json (manifest),
+// marketplace.json (listing), and every skills/*/SKILL.md (metadata.version) — is
+// what Claude Code installs and updates against, so it advances ONLY on a stable
+// release (--release, run by publish-stable). package.json is the dev/npm version
+// and iterates freely; between releases the published version lags it, which is
+// expected — --check only rejects the published version getting *ahead*.
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -27,56 +28,65 @@ const cmp = (a, b) => {
   return 0;
 };
 
-const mismatches = [];
-const record = (label, found) => {
-  if (found !== want) mismatches.push(`${label}: ${found ?? '(missing)'} (want ${want})`);
+// Every file carrying the published version, each with a read + write of it.
+const jsonField = (rel, get, set) => {
+  const path = join(root, rel);
+  return {
+    label: rel,
+    read: () => get(JSON.parse(readFileSync(path, 'utf8'))),
+    write: (v) => {
+      const o = JSON.parse(readFileSync(path, 'utf8'));
+      set(o, v);
+      writeFileSync(path, `${JSON.stringify(o, null, 2)}\n`);
+    },
+  };
+};
+const skillField = (label, path) => {
+  const re = /^(\s*version:\s*)(['"]?)([^'"\n]*)\2\s*$/m;
+  return {
+    label,
+    read: () => readFileSync(path, 'utf8').match(re)?.[3],
+    write: (v) => {
+      const raw = readFileSync(path, 'utf8');
+      const m = raw.match(re);
+      if (m) writeFileSync(path, raw.replace(m[0], `${m[1]}'${v}'`));
+    },
+  };
 };
 
-// --- Skill docs: metadata.version tracks package.json exactly (npm consistency) ---
+const fields = [
+  jsonField('.claude-plugin/plugin.json', (o) => o.version, (o, v) => (o.version = v)),
+  jsonField(
+    '.claude-plugin/marketplace.json',
+    (o) => o.plugins?.[0]?.version,
+    (o, v) => o.plugins.forEach((p) => (p.version = v)),
+  ),
+];
 const skillsDir = join(root, 'skills');
 for (const name of readdirSync(skillsDir)) {
   const path = join(skillsDir, name, 'SKILL.md');
-  if (!existsSync(path)) continue;
-  const raw = readFileSync(path, 'utf8');
-  const m = raw.match(/^(\s*version:\s*)(['"]?)([^'"\n]*)\2\s*$/m);
-  record(`skills/${name}/SKILL.md`, m ? m[3] : undefined);
-  if (!check && m) writeFileSync(path, raw.replace(m[0], `${m[1]}'${want}'`));
+  if (existsSync(path)) fields.push(skillField(`skills/${name}/SKILL.md`, path));
 }
 
-// --- Published plugin version: plugin.json (the plugin's manifest) + the
-// marketplace listing. These are what Claude Code installs + updates against, so
-// they advance ONLY on --release; --check just rejects them getting *ahead* of
-// package.json (between releases they lag at the last released version). ---
-const releaseManifests = [
-  ['.claude-plugin/plugin.json', (o) => o.version, (o) => (o.version = want)],
-  [
-    '.claude-plugin/marketplace.json',
-    (o) => o.plugins?.[0]?.version,
-    (o) => o.plugins.forEach((p) => (p.version = want)),
-  ],
-];
-for (const [rel, get, set] of releaseManifests) {
-  const path = join(root, rel);
-  const obj = JSON.parse(readFileSync(path, 'utf8'));
-  const found = get(obj);
-  if (release && !check) {
-    set(obj);
-    writeFileSync(path, `${JSON.stringify(obj, null, 2)}\n`);
-  } else if (check && cmp(found, want) > 0) {
-    mismatches.push(`${rel}: ${found} is ahead of package.json ${want} (advances only on a stable release)`);
+if (release) {
+  for (const f of fields) f.write(want);
+  console.log(`Released: published plugin version → ${want}`);
+} else if (check) {
+  const found = fields.map((f) => ({ label: f.label, v: f.read() }));
+  const ref = found[0].v; // they should all agree — the last released version
+  const problems = found
+    .filter(({ v }) => v !== ref)
+    .map(({ label, v }) => `${label}: ${v ?? '(missing)'} — published versions disagree (expected ${ref})`);
+  if (cmp(ref, want) > 0) {
+    problems.push(`published version ${ref} is ahead of package.json ${want} (it advances only on a stable release)`);
   }
-}
-
-if (check) {
-  if (mismatches.length) {
-    console.error(`Version drift vs package.json (${want}):`);
-    for (const line of mismatches) console.error(`  - ${line}`);
-    console.error('\nRun `bun run version:sync` and commit.');
+  if (problems.length) {
+    console.error('Published plugin version issue:');
+    for (const line of problems) console.error(`  - ${line}`);
     process.exit(1);
   }
-  console.log(`✓ versions consistent (package.json ${want})`);
-} else if (release) {
-  console.log(`Released: synced skill docs + plugin manifest + marketplace → ${want}`);
+  console.log(`✓ published plugin version ${ref} (package.json is ${want})`);
 } else {
-  console.log(`Synced skill-doc versions → ${want} (plugin manifest + marketplace left at their release)`);
+  console.error('Nothing to do without a flag. Use --check (CI guard) or --release (stable release only).');
+  process.exit(1);
 }

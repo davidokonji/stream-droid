@@ -7,7 +7,7 @@ allowed-tools:
   - Bash(drive *)
   - Bash(stream-droid-server)
 metadata:
-  version: '0.4.9'
+  version: '0.4.6'
 ---
 
 # apps
