@@ -1,15 +1,15 @@
 # CLI
 
-Run the server or a one-shot command. `src/server.ts` is the entry; the published
-`bin` (`bin/stream-droid.mjs`) runs it under **bun or node** — `bunx stream-droid`
-or `npx stream-droid`.
+Run the `stream-droid` CLI with **`npx stream-droid …`** (or `bunx stream-droid …`)
+— no global install needed, works under node or bun.
 
 ```bash
-bun run src/server.ts [name] [options]     # dev
-bun start                                   # build assets, then run (opens browser)
-./src/server.ts [name] [options]            # after `bun link`: `stream-droid …`
-bun run src/server.ts -h                    # full help
+npx stream-droid [name] [options]          # stream (default: the running device)
+npx stream-droid -h                        # full help
 ```
+
+(Contributors working in a clone can run the source directly with
+`bun run src/server.ts …` / `bun start`, but that's not needed to use the tool.)
 
 `name` (a bare argument) is the device to stream — an adb serial or an AVD name.
 If it's a stopped AVD, it's booted and streamed once online.
@@ -45,15 +45,15 @@ If it's a stopped AVD, it's booted and streamed once online.
 ## Examples
 
 ```bash
-bun run src/server.ts                                  # stream the running device, open browser
-bun run src/server.ts Pixel_9 -d                       # boot+stream Pixel_9, no browser
-bun run src/server.ts --capture scrcpy                 # v4.1 jar auto-downloads on first use
-bun run src/server.ts --port 4000 --serial emulator-5554
-bun run src/server.ts --tunnel-control                 # share a controllable public link + QR
-CAPTURE=grpc bun run src/server.ts -d                  # gRPC backend, headless
-bun run src/server.ts -a                               # list, then exit
-bun run src/server.ts --kill Pixel_9                   # shut it down
-bun run src/server.ts -l                               # colourised logcat
+npx stream-droid                                  # stream the running device, open browser
+npx stream-droid Pixel_9 -d                       # boot+stream Pixel_9, no browser
+npx stream-droid --capture scrcpy                 # v4.1 jar auto-downloads on first use
+npx stream-droid --port 4000 --serial emulator-5554
+npx stream-droid --tunnel-control                 # share a controllable public link + QR
+CAPTURE=grpc npx stream-droid -d                  # gRPC backend, headless
+npx stream-droid -a                               # list, then exit
+npx stream-droid --kill Pixel_9                   # shut it down
+npx stream-droid -l                               # colourised logcat
 ```
 
 ## Notes

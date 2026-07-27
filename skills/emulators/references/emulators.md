@@ -9,7 +9,7 @@ devices come from `adb devices`.
 ## List
 
 ```bash
-bun run src/server.ts -a
+npx stream-droid -a
 # Running streams (1):
 #   emulator-5554    Pixel_9                  emulator
 # Stopped AVDs: Galaxy_Samsung_A55, Pixel_7_API_34, Small_Phone_API_34
@@ -21,7 +21,7 @@ Or over HTTP while the server runs: `GET /api/state` returns `avds`
 ## Boot
 
 - **CLI:** name a stopped AVD; it boots and streams once online:
-  `bun run src/server.ts Pixel_9`.
+  `npx stream-droid Pixel_9`.
 - **Sidebar:** click **Start** on a ⚪ row (tick **headless** first for no host
   window).
 - **API:** `POST /api/start` with `{ "avd": "Pixel_9", "headless": true }`.
@@ -36,7 +36,7 @@ sidebar polls `/api/state` every 3 s and flips 🟢/⚪.
 ## Kill
 
 ```bash
-bun run src/server.ts --kill Pixel_9        # or a serial; emulators only
+npx stream-droid --kill Pixel_9        # or a serial; emulators only
 ```
 
 Uses `adb -s <serial> emu kill`. Physical devices can't be shut down this way.

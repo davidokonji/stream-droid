@@ -22,12 +22,11 @@ control. Sharing is **view-only by default**; control is gated by a token.
 
 ## Commands
 
-Use the `stream-droid` CLI (installed: `bunx`/`npx stream-droid …`; from a clone:
-`bun run src/server.ts …`).
+Use the `stream-droid` CLI — `npx stream-droid …` (or `bunx stream-droid …`).
 
 ```bash
-stream-droid --tunnel            # -t : share a VIEW-ONLY public link + QR
-stream-droid --tunnel-control    # -tc: the shared link can also CONTROL
+npx stream-droid --tunnel          # -t : share a VIEW-ONLY public link + QR
+npx stream-droid --tunnel-control  # -tc: the shared link can also CONTROL
 ```
 
 On start it prints the public link and a QR to scan.

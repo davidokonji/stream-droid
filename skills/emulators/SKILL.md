@@ -27,15 +27,14 @@ Once a device is running, drive it with the **`/stream-droid:drive`** skill.
 
 ## Commands
 
-Use the `stream-droid` CLI. When installed as a package it's on `PATH`
-(`bunx stream-droid …` / `npx stream-droid …`); from a clone use
-`bun run src/server.ts …`.
+Use the `stream-droid` CLI — run it with `npx stream-droid …` (or
+`bunx stream-droid …`), which works without a global install.
 
 ```bash
-stream-droid -a                     # list running streams + stopped AVDs, then exit
-stream-droid Pixel_9 -d             # boot Pixel_9 (if stopped) and stream it, headless
-stream-droid Pixel_9 --headless     # same — the emulator boots with no host window
-stream-droid --kill Pixel_9         # shut a running emulator down (emulators only)
+npx stream-droid -a                 # list running streams + stopped AVDs, then exit
+npx stream-droid Pixel_9 -d         # boot Pixel_9 (if stopped) and stream it, headless
+npx stream-droid Pixel_9 --headless # same — the emulator boots with no host window
+npx stream-droid --kill Pixel_9     # shut a running emulator down (emulators only)
 ```
 
 - Naming a **stopped** AVD boots it, then streams once it's online (~20–60 s).
@@ -44,9 +43,8 @@ stream-droid --kill Pixel_9         # shut a running emulator down (emulators on
   reference.)
 - `--kill` uses `adb emu kill`; physical devices can't be shut down this way.
 
-To confirm what's running without booting anything, the drive helper also lists
-devices: `bun "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs" devices`
-(from a clone: `bun skills/drive/scripts/drive.mjs devices`).
+`npx stream-droid -a` is the quickest answer to "what's running" — it lists and
+exits without leaving a server up.
 
 ## Common mistakes
 
