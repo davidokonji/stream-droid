@@ -36,6 +36,7 @@ export function App() {
   const [headless, setHeadless] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
+  const [stopping, setStopping] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
   useKeyboard(send, controllable);
@@ -61,35 +62,43 @@ export function App() {
     }
   };
 
-  // Close the streamed device. Headless emulators (no window) are shut down
-  // entirely — whether this session booted them or not, from the server's live
-  // `headless` state; a windowed emulator just detaches (it keeps running).
-  const closeActive = async (): Promise<void> => {
-    if (!serial) return;
+  // Kill an emulator. Mark it "shutting down" first so its sidebar row doesn't flash
+  // "Stream" — the device stays running (and streamable) until adb-kill propagates
+  // and the next poll drops it; the poll clears `stopping` once it's gone.
+  const killDevice = async (dev: string, name: string): Promise<void> => {
     setNotice(null);
-    const active = avds.find((a) => a.serial === serial);
+    setStopping((s) => new Set(s).add(name));
     disconnect();
-    if (active?.headless) {
-      try {
-        await stopEmulator(serial);
-      } catch (e) {
-        setNotice(`couldn't stop ${active.name}: ${(e as Error).message}`);
-      }
+    try {
+      await stopEmulator(dev);
+    } catch (e) {
+      setStopping((s) => {
+        const n = new Set(s);
+        n.delete(name);
+        return n;
+      });
+      setNotice(`couldn't stop ${name}: ${(e as Error).message}`);
     }
   };
 
-  // Fully shut the streamed emulator down (adb emu kill) regardless of headless —
-  // for windowed emulators, whose "Stop" only detaches.
+  // Close the streamed device: a headless emulator (no window) is shut down
+  // entirely; a windowed one just detaches (it keeps running, re-streamable).
+  const closeActive = async (): Promise<void> => {
+    if (!serial) return;
+    const active = avds.find((a) => a.serial === serial);
+    if (active?.headless) await killDevice(serial, active.name);
+    else {
+      setNotice(null);
+      disconnect();
+    }
+  };
+
+  // Explicit full shutdown (adb emu kill) regardless of headless — the ⏻ on a
+  // windowed row, whose Stop only detaches.
   const shutdownActive = async (): Promise<void> => {
     if (!serial) return;
-    setNotice(null);
     const active = avds.find((a) => a.serial === serial);
-    disconnect();
-    try {
-      await stopEmulator(serial);
-    } catch (e) {
-      setNotice(`couldn't stop ${active?.name ?? serial}: ${(e as Error).message}`);
-    }
+    await killDevice(serial, active?.name ?? serial);
   };
 
   // Slow the poll once a stream is live and nothing's booting; the WS reports
@@ -107,6 +116,13 @@ export function App() {
           const n = new Set(b);
           for (const a of st.avds) if (a.running) n.delete(a.name);
           return n.size === b.size ? b : n;
+        });
+        // Clear "shutting down" once the emulator has actually stopped.
+        setStopping((s) => {
+          if (s.size === 0) return s;
+          const n = new Set(s);
+          for (const a of st.avds) if (!a.running) n.delete(a.name);
+          return n.size === s.size ? s : n;
         });
         // The streamed device vanished (emulator closed) — tear the stream down so
         // the UI shows "disconnected" instead of a frozen frame, without a reload.
@@ -176,6 +192,7 @@ export function App() {
             activeSerial={serial}
             liveSerial={live ? serial : null}
             booting={booting}
+            stopping={stopping}
             busy={booting.size > 0}
             headless={headless}
             onHeadless={setHeadless}

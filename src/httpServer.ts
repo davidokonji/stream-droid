@@ -90,9 +90,9 @@ export function createHttpServer(): http.Server {
           // verbatim, so a bare name would make `adb -s <name> emu kill` fail. Map
           // it to a running serial here (empty request → the first running device).
           const devs = listDevices();
-          const q = (reqSerial ?? '').toLowerCase();
-          const serial = q
-            ? devs.find((d) => d.serial.toLowerCase() === q || d.avd.toLowerCase() === q)?.serial
+          const want = (reqSerial ?? '').toLowerCase();
+          const serial = want
+            ? devs.find((d) => d.serial.toLowerCase() === want || d.avd.toLowerCase() === want)?.serial
             : devs[0]?.serial;
           if (!serial) {
             json(res, 400, { ok: false, error: 'no matching running device' });

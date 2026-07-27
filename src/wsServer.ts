@@ -41,6 +41,7 @@ async function awaitDeviceSize(ws: WebSocket, serial: string): Promise<CaptureMe
         log.info(`${serial}: framework still booting — waiting…`);
         waited = true;
       }
+      // eslint-disable-next-line no-await-in-loop -- deliberate: poll boot readiness sequentially
       await sleep(2000);
     }
   }

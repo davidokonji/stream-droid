@@ -147,7 +147,7 @@ export function avdStatuses(): AvdStatus[] {
       // this server's own headless boots (works everywhere, incl. Windows).
       headless: bySerial.has(name) && (bootedHeadless.has(name) || ps.has(name)),
     }))
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (a.running !== b.running) return a.running ? -1 : 1; // running first
       const diff = (lastActive.get(b.name) ?? 0) - (lastActive.get(a.name) ?? 0);
       return diff || a.name.localeCompare(b.name); // most-recent, then stable alpha

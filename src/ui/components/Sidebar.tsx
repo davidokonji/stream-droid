@@ -14,6 +14,7 @@ interface Props {
   activeSerial: string | null;
   liveSerial: string | null;
   booting: Set<string>;
+  stopping: Set<string>; // AVDs being shut down — show "shutting down…" until gone
   // Any AVD booting? Disables conflicting controls (other Start/Stream buttons
   // and the headless toggle) until the boot resolves.
   busy: boolean;
@@ -31,6 +32,7 @@ export function Sidebar({
   activeSerial,
   liveSerial,
   booting,
+  stopping,
   busy,
   headless,
   onHeadless,
@@ -67,6 +69,7 @@ export function Sidebar({
             active={a.serial === activeSerial}
             streaming={a.serial != null && a.serial === liveSerial}
             booting={booting.has(a.name)}
+            stopping={stopping.has(a.name)}
             busy={busy}
             streamingHeadless={a.headless}
             onStream={(s) => {
