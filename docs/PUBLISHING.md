@@ -169,20 +169,23 @@ auto-update*). To pull a new version:
 /plugin update stream-droid@stream-droid     # update the installed plugin
 ```
 
-Claude Code decides an update is available by comparing the `version` field
-against what's installed — so the plugin manifests and skill docs must track
-`package.json`. This is **automated and enforced**, not manual:
+Claude Code decides an update is available by comparing the **marketplace
+listing's** `version` against what's installed — so that version must advance
+**only on a stable release**, never on a dev bump. This is automated and enforced:
 
-- `bun run version:sync` writes `package.json`'s version into both
-  `.claude-plugin/*.json` and all four `skills/*/SKILL.md` (`metadata.version`).
-- The **stable release** workflow runs `version:sync` as part of the release
-  commit, so a release bumps everything together.
-- **CI guards it** — `bun run version:check` (part of `bun run check`, and a CI
-  step) fails if any manifest/skill version drifts from `package.json`.
+- `bun run version:sync` (dev, and part of `bun run check`) writes `package.json`'s
+  version into `.claude-plugin/plugin.json` and all four `skills/*/SKILL.md`
+  (`metadata.version`) — but **leaves `.claude-plugin/marketplace.json` alone**, so
+  in-progress branch work never advertises itself to installed users.
+- `bun run version:release` additionally bumps `marketplace.json`. Only the
+  **stable release** workflow runs it (after `npm version`), so the marketplace
+  advances exactly once per release.
+- **CI guards it** — `bun run version:check` fails if plugin.json/skill versions
+  drift from `package.json`, or if the marketplace version gets *ahead* of it
+  (between releases it lags, which is expected).
 
-So a normal release keeps them in step automatically; if you ever hand-edit
-`package.json`, run `bun run version:sync` and commit. skills.sh installs update by
-re-running `npx skills add davidokonji/stream-droid`.
+If you hand-edit `package.json`, run `bun run version:sync` and commit. skills.sh
+installs update by re-running `npx skills add davidokonji/stream-droid`.
 
 ---
 

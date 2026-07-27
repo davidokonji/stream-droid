@@ -194,9 +194,10 @@ auto-update under `/plugin` → **Marketplaces** to skip this):
 /reload-plugins                              # load it into the session
 ```
 
-Claude Code decides an update is available by comparing the plugin's `version`, so
-a new version only reaches installed users once it's **bumped** — that's automated
-on release and enforced by CI (see [docs/PUBLISHING.md](docs/PUBLISHING.md)).
+Claude Code decides an update is available by comparing the plugin's advertised
+**marketplace** version, which advances **only on a stable release** — so
+in-progress changes on branches never prompt installed users to update. Releases
+are cut via the publish-stable workflow (see [docs/PUBLISHING.md](docs/PUBLISHING.md)).
 
 **skills.sh** — re-run `npx skills add davidokonji/stream-droid`. **Manual** —
 re-copy the `skills/` tree.

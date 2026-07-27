@@ -67,6 +67,7 @@
     "format:check": "oxfmt --check src",
     "version:sync": "node scripts/versions.mjs",
     "version:check": "node scripts/versions.mjs --check",
+    "version:release": "node scripts/versions.mjs --release",
     "check": "oxlint src && oxfmt --check src && bunx tsc --noEmit && node scripts/versions.mjs --check",
     "prepublishOnly": "npm run build"
   },
