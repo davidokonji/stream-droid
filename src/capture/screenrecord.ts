@@ -7,7 +7,13 @@ import type { CaptureHandle, CaptureOptions } from './types.ts';
 const HEALTHY_MS = 1500;
 const MAX_FAST_FAILS = 5;
 
-export function startScreenrecord({ adbArgs, onChunk, onError }: CaptureOptions): CaptureHandle {
+export function startScreenrecord({
+  adbArgs,
+  onChunk,
+  onError,
+  bitRate,
+  size,
+}: CaptureOptions): CaptureHandle {
   let alive = true;
   let child: ChildProcessWithoutNullStreams | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -24,7 +30,9 @@ export function startScreenrecord({ adbArgs, onChunk, onError }: CaptureOptions)
         '--time-limit',
         '180',
         '--bit-rate',
-        '4000000',
+        String(bitRate || 4_000_000),
+        // Downscale the capture when requested — fewer pixels to encode + send.
+        ...(size ? ['--size', size] : []),
         '-',
       ),
     );

@@ -33,6 +33,8 @@ If it's a stopped AVD, it's booted and streamed once online.
 | `--serial <s>` | `ANDROID_SERIAL` | first device | device to stream (serial or AVD name) |
 | `--emulator <s>` / `--avd <s>` | — | — | aliases for `--serial` |
 | `--capture <mode>` | `CAPTURE` | `screenrecord` | `screenrecord` · `scrcpy` · `grpc` — see [docs/capture-backends.md](../../../docs/capture-backends.md) |
+| `--max-size <px>` | `STREAM_DROID_MAX_SIZE` | `0` (native) | downscale capture so its longer edge ≤ px (h264 backends) |
+| `--bit-rate <n>` | `STREAM_DROID_BIT_RATE` | backend default | encoder bit-rate — `4000000`, `3M`, `800K` (h264 backends) |
 | `--scrcpy-server <path>` | `SCRCPY_SERVER_JAR` | auto-download | scrcpy-server jar (scrcpy mode); omit to auto-download + SHA-256-verify the pinned v4.1 jar |
 | `--scrcpy-control <v>` | `SCRCPY_CONTROL` | `on` | `off` → route input via `adb input` in scrcpy mode |
 | `-d`, `--headless` | `STREAM_DROID_HEADLESS=1` | off | don't auto-open the browser (server still runs) |

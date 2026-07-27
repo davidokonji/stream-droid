@@ -51,7 +51,16 @@ export interface ScrcpyDeps {
 }
 
 export function startScrcpy(
-  { adbArgs, serverJar, port = 27183, control = false, onChunk, onError }: ScrcpyOptions,
+  {
+    adbArgs,
+    serverJar,
+    port = 27183,
+    control = false,
+    maxSize = 0,
+    bitRate = 8_000_000,
+    onChunk,
+    onError,
+  }: ScrcpyOptions,
   deps: ScrcpyDeps = {},
 ): CaptureHandle {
   const execAdb = deps.execAdb ?? ((args: string[]) => execFileP('adb', args).then(() => undefined));
@@ -220,8 +229,8 @@ export function startScrcpy(
         `control=${control}`,
         'video=true',
         'video_codec=h264',
-        'video_bit_rate=8000000',
-        'max_size=0',
+        `video_bit_rate=${bitRate}`,
+        `max_size=${maxSize}`,
         'raw_stream=true',
       ),
     );

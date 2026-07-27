@@ -67,3 +67,27 @@ CAPTURE=grpc bun run src/server.ts
 ```
 
 Frame-driven: an idle screen produces no new frames until it changes.
+
+## Tuning the h264 backends (`--max-size`, `--bit-rate`)
+
+For `screenrecord` and `scrcpy`, the stream is captured at the device's **native
+resolution** and a fixed bit-rate by default. On a high-res device most of the
+streaming cost is the **on-device H.264 encode** — profiling a 1080×2424 emulator
+under motion showed the encode adding ~1.3 cores to the emulator, versus the
+transport (WebSocket relay) being negligible. Two knobs trade a little sharpness
+for a lot less encode CPU and bandwidth:
+
+- **`--max-size <px>`** (`STREAM_DROID_MAX_SIZE`) — downscale so the longer edge is
+  ≤ px, preserving aspect (screenrecord gets a computed `--size WxH`; scrcpy takes
+  `max_size` and scales itself). `0` = native.
+- **`--bit-rate <n>`** (`STREAM_DROID_BIT_RATE`) — encoder bit-rate; accepts
+  `4000000`, `3M`, or `800K`. Unset uses each backend's default (screenrecord 4 Mbps,
+  scrcpy 8 Mbps).
+
+```bash
+stream-droid --max-size 900 --bit-rate 2M     # ~3× less encode CPU, ~2.4× smaller frames
+```
+
+Input is unaffected — control coordinates still map to real device pixels (the
+`meta` size stays the device's resolution); only the video is downscaled. These
+knobs don't apply to `grpc`, which sends native-resolution PNGs.
