@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // drive.mjs — one-shot control of a running stream-droid session, for agents.
-// Runs under bun or node ≥ 18. The server must be running locally
-// (e.g. `bun run src/server.ts -d`).
+// Runs under node (≥ 18; control commands need ≥ 22 for WebSocket) or bun. Needs a
+// server running locally — start one with `node scripts/ensure-server.mjs`.
 //
-//   bun scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
+//   node scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
 //   node scripts/drive.mjs <command> …
 //
 // Port: --port or $STREAM_DROID_PORT (default 3200).
@@ -78,10 +78,13 @@ async function getWebSocket() {
   }
 }
 
-async function devices() {
+async function state() {
   const r = await fetch(`${BASE}/api/state`).catch(() => null);
-  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — is it running? (bun run src/server.ts -d)`);
-  return (await r.json()).devices;
+  if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: node scripts/ensure-server.mjs`);
+  return r.json();
+}
+async function devices() {
+  return (await state()).devices;
 }
 
 async function resolveSerial() {
@@ -115,10 +118,15 @@ async function control(msg) {
 function help() {
   console.log(`drive.mjs — control a running stream-droid session
 
-  bun scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
+  node scripts/drive.mjs <command> [args] [--serial <serial|avd>] [--port <n>]
   node scripts/drive.mjs <command> …
 
   devices                     list running devices
+  avds [grep]                 list AVDs with running/stopped state (via the server API)
+  boot <avd> [--headless]     boot an AVD (POST /api/start); add --cold to skip a
+                              (possibly corrupt) saved snapshot and full-boot it
+  kill <serial|avd>           shut a running emulator down (POST /api/stop)
+  health                      accel/adb/emulator checks + per-device boot readiness
   apps [grep]                 list installed packages + current foreground app
   launch <package>            launch an app by package name
   shot [file]                 save a screenshot PNG (default screen.png)
@@ -146,6 +154,68 @@ async function main() {
     case 'devices': {
       const devs = await devices();
       console.log(devs.length ? devs.map((d) => `${d.serial}  ${d.avd}`).join('\n') : 'no running devices');
+      break;
+    }
+    case 'avds': {
+      const { avds } = await state();
+      const grep = rest[0]?.toLowerCase();
+      const rows = avds.filter((a) => !grep || a.name.toLowerCase().includes(grep));
+      console.log(
+        rows.length
+          ? rows
+              .map((a) => {
+                const state = a.running ? '🟢 running' : a.bootError ? '⚠ failed ' : '⚪ stopped';
+                const tail = a.serial ? `  ${a.serial}` : a.bootError ? `  — ${a.bootError}` : '';
+                return `${state}  ${a.name}${tail}`;
+              })
+              .join('\n')
+          : 'no AVDs found',
+      );
+      break;
+    }
+    case 'boot': {
+      const headless = rest.includes('--headless') || rest.includes('-d');
+      const cold = rest.includes('--cold');
+      const avd = need(
+        rest.find((a) => !a.startsWith('-')),
+        'avd name',
+      );
+      const r = await fetch(`${BASE}/api/start`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ avd, headless, cold }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) die(`boot failed: ${j.error ?? r.status}`);
+      const how = [headless && 'headless', cold && 'cold'].filter(Boolean).join(', ');
+      console.log(`booting ${avd}${how ? ` (${how})` : ''}… (~20–60s to come online)`);
+      break;
+    }
+    case 'health': {
+      const r = await fetch(`${BASE}/api/health`).catch(() => null);
+      if (!r?.ok) die(`can't reach stream-droid at ${BASE} — start it with: node scripts/ensure-server.mjs`);
+      const h = await r.json();
+      const mark = (ok) => (ok ? '✓' : '✗');
+      console.log(`${mark(h.adb)} adb    ${mark(h.emulator)} emulator    ${mark(h.accel.ok)} accel — ${h.accel.detail}`);
+      if (h.devices.length) {
+        for (const d of h.devices) {
+          console.log(`${d.booted ? '✓ ready  ' : '⏳ starting'} ${d.serial}  ${d.avd}`);
+        }
+      } else {
+        console.log('(no running devices)');
+      }
+      break;
+    }
+    case 'kill': {
+      const target = need(rest[0], 'serial or avd name');
+      const r = await fetch(`${BASE}/api/stop`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ serial: target }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) die(`kill failed: ${j.error ?? r.status}`);
+      console.log(`killed ${j.serial ?? target}`);
       break;
     }
     case 'shot': {
@@ -259,4 +329,6 @@ async function main() {
   }
 }
 
-void main();
+// A clean `drive: …` line on any failure (e.g. the server is down, so a bare
+// fetch in boot/kill rejects) instead of an unhandled-rejection stack trace.
+main().catch((e) => die(e?.message ?? String(e)));

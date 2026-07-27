@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check.mjs — verify stream-droid prerequisites before driving a device.
 // Runs under bun or node ≥ 18. Exit 0 when ready, 1 when a hard requirement is missing.
-//   bun scripts/check.mjs   |   node scripts/check.mjs   [--port <n>]
+//   node scripts/check.mjs   |   node scripts/check.mjs   [--port <n>]
 
 import { spawnSync } from 'node:child_process';
 
@@ -47,12 +47,12 @@ try {
   if (st.devices.length) pass(`server can stream: ${st.devices.map((d) => `${d.avd}(${d.serial})`).join(', ')}`);
   else warn('server is up but has no device to stream', 'boot one from the sidebar or start an AVD');
 } catch {
-  bad(`server not reachable on :${PORT}`, 'start it first:  bun run src/server.ts -d');
+  bad(`server not reachable on :${PORT}`, 'start it first:  node scripts/ensure-server.mjs');
 }
 
 console.log(
   ok
-    ? '\n\x1b[32mReady.\x1b[0m Use `bun scripts/drive.mjs` (or `node scripts/drive.mjs`) to drive the device.'
+    ? '\n\x1b[32mReady.\x1b[0m Use `node scripts/drive.mjs` (or `bun scripts/drive.mjs`) to drive the device.'
     : '\n\x1b[31mNot ready.\x1b[0m',
 );
 process.exit(ok ? 0 : 1);

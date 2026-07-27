@@ -19,8 +19,12 @@ client per device assumed, localhost-first.
 - **Runtime:** [bun](https://bun.sh) ≥ 1.3.11 (pinned in `.bun-version`) **or
   node ≥ 20**. The server is TypeScript run directly — under bun natively, or
   under node via `tsx` (a dependency). `bin/stream-droid.mjs` is the published
-  entry and picks the runtime (`typeof Bun`). Building the client bundle uses bun
-  (`bun build`), so **running** is bun-optional but **building** from source isn't.
+  entry and picks the runtime (`typeof Bun`). **Fully bun-optional** — server,
+  skill helpers, and the build all run under node or bun. The client bundle is
+  built by `scripts/build-client.mjs` (esbuild; a small plugin wraps jmuxer's UMD
+  so esbuild can extract its default export — see the script), CSS via
+  `npx @tailwindcss/cli`. `ensureAssetsBuilt` builds both on first run under the
+  current runtime; the npm package ships them prebuilt so running never builds.
 - **Language:** TypeScript, `strict`, **no `any`** (enforced by oxlint).
 - **Server deps:** `ws`, `@grpc/grpc-js` + `@grpc/proto-loader`, `ts-pattern`,
   `localtunnel`, `qrcode`.
@@ -59,7 +63,7 @@ src/
   log.ts           leveled logger; quiet by default — only error() prints without -v/--verbose
   adb.ts           adbFor(serial), resolveSerial/targetSerial, deviceSize, sendPoster
   controllers.ts   Control/Incoming types; adb/scrcpy/grpc controllers; pickController
-  httpServer.ts    static assets + /api/{state,start,stop,apps,launch,hierarchy} (ts-pattern routes)
+  httpServer.ts    static assets + /api/{state,start,stop,health,apps,launch,hierarchy} (ts-pattern routes)
   wsServer.ts      per-connection: stream frames out, route control in
   commands.ts      -h help · -a list · --kill · -l log · --tunnel
   lifecycle.ts     preflight, first-run asset build, boot target, openBrowser
@@ -108,14 +112,18 @@ skill change.
 - **`ts-pattern` for dispatch & discriminated unions.** Use `match(...).with(...)
   .exhaustive()` for command dispatch, the control-message switch in each
   controller, capture selection, and platform branching — not `switch`/if-chains.
+  It's used in the client too (e.g. `Screen.tsx` renders per `ConnState`); the
+  ~6 KB it adds to the bundle is an accepted trade for exhaustive, readable
+  state rendering.
 - **All classNames go through `tailwind-variants` (`tv`)** — `tv({ base })`,
   `tv({ slots })`, or `tv({ variants })`. There is no `cn` helper; don't add one.
 - **React:** function components + hooks only. Imperative stream/WS/jMuxer logic
   lives in `useDeviceStream`; components stay declarative. Import React types by
   name (`import { useRef, type RefObject } from 'react'`) — do **not** use the
   `React.X` global namespace (breaks under `verbatimModuleSyntax`). Client is
-  built with `bun build --production` (sets `NODE_ENV`); **don't** use
-  `--minify --define` — that mismatches jsxDEV and crashes.
+  built by `scripts/build-client.mjs` (esbuild, under node or bun; a plugin wraps
+  jmuxer's UMD so its default export resolves) — set `NODE_ENV=production` via
+  `define`, as that script does.
 - **Imports use explicit `.ts`/`.tsx` extensions** (bundler resolution).
 - **Types for untyped deps** go in `src/types/*.d.ts` (module declarations).
 - **No `any`.** Type dynamic gRPC/proto surfaces with narrow interfaces (see

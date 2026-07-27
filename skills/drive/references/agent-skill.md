@@ -8,8 +8,8 @@ skill's entry is [`../SKILL.md`](../SKILL.md); the helpers are in
 ## Setup
 
 ```bash
-bun scripts/ensure-server.mjs           # start the server headless if it isn't up
-bun scripts/check.mjs                    # verify bun/node, adb, a device, the server
+node scripts/ensure-server.mjs           # start the server headless if it isn't up
+node scripts/check.mjs                    # verify node/bun, adb, a device, the server
 ```
 
 `drive.mjs` talks to `localhost:3200` (override with `--port` /
@@ -18,8 +18,8 @@ bun scripts/check.mjs                    # verify bun/node, adb, a device, the s
 
 ## Commands
 
-Run from the skill dir (`bun scripts/drive.mjs …`) or a clone
-(`bun skills/drive/scripts/drive.mjs …`):
+Run from the skill dir (`node scripts/drive.mjs …`) or a clone
+(`node skills/drive/scripts/drive.mjs …`):
 
 | Command | Does |
 |---|---|
@@ -42,10 +42,10 @@ App control (`apps` / `launch`) is in the **`/stream-droid:apps`** skill.
 ## The loop
 
 ```bash
-bun scripts/drive.mjs shot                          # look → open screen.png
-bun scripts/drive.mjs ui internet                   # read → elements matching "internet"
-bun scripts/drive.mjs tap:text "Network & internet" # act
-bun scripts/drive.mjs shot                          # confirm the screen changed
+node scripts/drive.mjs shot                          # look → open screen.png
+node scripts/drive.mjs ui internet                   # read → elements matching "internet"
+node scripts/drive.mjs tap:text "Network & internet" # act
+node scripts/drive.mjs shot                          # confirm the screen changed
 ```
 
 ## Notes

@@ -1,6 +1,6 @@
 {
   "name": "stream-droid",
-  "version": "0.4.2",
+  "version": "0.4.5",
   "description": "Stream a running Android emulator or device to the browser and drive it (tap/swipe/type/keys) — for humans and AI agents. TypeScript + bun.",
   "type": "module",
   "license": "MIT",
@@ -54,9 +54,9 @@
   },
   "scripts": {
     "build:css": "tailwindcss -i src/ui/styles.css -o public/app.css --minify",
-    "build:client": "bun build src/client.tsx --outfile public/client.js --target browser --production",
-    "build": "bun run build:css && bun run build:client",
-    "start": "bun run build && node bin/stream-droid.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "build": "npm run build:css && npm run build:client",
+    "start": "npm run build && node bin/stream-droid.mjs",
     "docs:api": "bun scripts/typedoc-readme.mjs && typedoc",
     "docs:preview": "bun run docs:api && bunx serve docs/api",
     "test": "bun test",
@@ -68,7 +68,7 @@
     "version:sync": "node scripts/versions.mjs",
     "version:check": "node scripts/versions.mjs --check",
     "check": "oxlint src && oxfmt --check src && bunx tsc --noEmit && node scripts/versions.mjs --check",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
@@ -91,6 +91,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.5.12",
+    "esbuild": "^0.28.1",
     "oxfmt": "^0.60.0",
     "oxlint": "^1.75.0",
     "tailwindcss": "^4.3.3",

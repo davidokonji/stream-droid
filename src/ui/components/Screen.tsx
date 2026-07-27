@@ -1,17 +1,10 @@
 import { useRef, type RefObject } from 'react';
+import { match } from 'ts-pattern';
 import { tv } from 'tailwind-variants';
 import type { Codec, ConnState, Control } from '../types';
 import { LiveDot } from './LiveDot';
 
 const LONG_PRESS_MS = 500; // a stationary hold this long becomes a long-press
-
-// What the preview overlay says when frames aren't flowing.
-const OVERLAY: Record<Exclude<ConnState, 'live'>, { title: string; sub: string; tone: string }> = {
-  idle: { title: 'No device streaming', sub: 'Pick an emulator in the sidebar', tone: 'text-neutral-400' },
-  connecting: { title: 'Connecting…', sub: '', tone: 'text-neutral-300' },
-  disconnected: { title: 'Device disconnected', sub: 'Reconnect from the sidebar', tone: 'text-amber-300' },
-  error: { title: 'Stream error', sub: '', tone: 'text-red-300' },
-};
 
 const screen = tv({
   slots: {
@@ -26,12 +19,27 @@ const screen = tv({
     oDot: 'h-2.5 w-2.5 rounded-full bg-current',
     oTitle: 'text-[13px] font-medium',
     oSub: 'text-[11px] text-neutral-400',
+    // Idle empty state: a dashed device-shaped placeholder — "your device shows here".
+    idle: 'flex h-[560px] max-h-[78vh] w-[280px] max-w-full flex-col items-center justify-center gap-4 rounded-[34px] border border-dashed border-[#2a323d] px-8 text-center',
+    idleIcon: 'text-neutral-600',
+    idleTitle: 'text-[14px] font-medium text-neutral-300',
+    idleBtn:
+      'mt-1 cursor-pointer rounded-lg border border-[#2f6feb]/60 bg-[#12203b] px-4 py-2 text-[13px] font-medium text-[#6aa0ff] transition-colors hover:bg-[#16294a]',
+    idleSub: 'text-[12px] leading-relaxed text-neutral-500',
   },
   variants: {
     hidden: { true: { surface: 'hidden' } },
     viewOnly: { true: { surface: 'cursor-default' } },
   },
 });
+
+export interface EmptyState {
+  title: string;
+  hint: string;
+  busy: boolean; // an AVD is booting — show a spinner + "booting…"
+  startLabel?: string; // primary action label, e.g. "Start Pixel_9"
+  onStart?: () => void;
+}
 
 interface Props {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -40,16 +48,29 @@ interface Props {
   live: boolean;
   state: ConnState;
   status: string;
+  empty: EmptyState;
   controllable: boolean;
   onControl: (msg: Control) => void;
 }
 
 const clamp = (v: number): number => Math.min(1, Math.max(0, v));
 
-export function Screen({ videoRef, canvasRef, codec, live, state, status, controllable, onControl }: Props) {
+export function Screen({
+  videoRef,
+  canvasRef,
+  codec,
+  live,
+  state,
+  status,
+  empty,
+  controllable,
+  onControl,
+}: Props) {
   const down = useRef<{ x: number; y: number; t: number } | null>(null);
   const png = codec === 'png';
-  const { root, surface, badge, overlay, spinner, oDot, oTitle, oSub } = screen();
+  const idleState = state === 'idle';
+  const s = screen();
+  const { root, surface, badge, overlay, spinner, oDot, oTitle, oSub } = s;
 
   const rect = (): DOMRect => (png ? canvasRef.current! : videoRef.current!).getBoundingClientRect();
   const norm = (ev: { clientX: number; clientY: number }): { x: number; y: number } => {
@@ -92,25 +113,66 @@ export function Screen({ videoRef, canvasRef, codec, live, state, status, contro
         </div>
       )}
       {!controllable && <div className={badge({ class: 'right-2 text-amber-300' })}>👁 view-only</div>}
-      {state !== 'live' && (
-        <div className={overlay()}>
-          {state === 'connecting' ? (
+
+      {match(state)
+        .with('idle', () => (
+          <div className={s.idle()}>
+            {empty.busy ? (
+              <span className={spinner()} />
+            ) : (
+              <svg
+                width="34"
+                height="34"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className={s.idleIcon()}
+              >
+                <rect x="6" y="2" width="12" height="20" rx="3" />
+                <line x1="10" y1="18.5" x2="14" y2="18.5" />
+              </svg>
+            )}
+            <span className={s.idleTitle()}>{empty.title}</span>
+            {!empty.busy && empty.onStart && (
+              <button className={s.idleBtn()} onClick={empty.onStart}>
+                ▶ {empty.startLabel}
+              </button>
+            )}
+            <span className={s.idleSub()}>{empty.hint}</span>
+          </div>
+        ))
+        .with('connecting', () => (
+          <div className={overlay()}>
             <span className={spinner()} />
-          ) : (
-            <span className={oDot({ class: OVERLAY[state].tone })} />
-          )}
-          <span className={oTitle({ class: OVERLAY[state].tone })}>{OVERLAY[state].title}</span>
-          <span className={oSub()}>{state === 'error' ? status : OVERLAY[state].sub}</span>
-        </div>
-      )}
+            <span className={oTitle({ class: 'text-neutral-300' })}>Connecting…</span>
+          </div>
+        ))
+        .with('disconnected', () => (
+          <div className={overlay()}>
+            <span className={oDot({ class: 'text-amber-300' })} />
+            <span className={oTitle({ class: 'text-amber-300' })}>Device disconnected</span>
+            <span className={oSub()}>Reconnect from the sidebar</span>
+          </div>
+        ))
+        .with('error', () => (
+          <div className={overlay()}>
+            <span className={oDot({ class: 'text-red-300' })} />
+            <span className={oTitle({ class: 'text-red-300' })}>Stream error</span>
+            <span className={oSub()}>{status}</span>
+          </div>
+        ))
+        .with('live', () => null)
+        .exhaustive()}
+
       <video
         ref={videoRef}
         autoPlay
         muted
         playsInline
-        className={surface({ hidden: png, viewOnly: !controllable })}
+        className={surface({ hidden: png || idleState, viewOnly: !controllable })}
       />
-      <canvas ref={canvasRef} className={surface({ hidden: !png, viewOnly: !controllable })} />
+      <canvas ref={canvasRef} className={surface({ hidden: !png || idleState, viewOnly: !controllable })} />
     </div>
   );
 }

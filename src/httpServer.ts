@@ -1,12 +1,19 @@
-// HTTP server: serves the built client assets and the small emulator/semantic API.
-
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { match } from 'ts-pattern';
 import { config, isAuthorized } from './config.ts';
 import { adbFor, resolveSerial } from './adb.ts';
-import { avdStatuses, killEmulator, listDevices, startEmulator } from './emulator.ts';
+import {
+  accelStatus,
+  avdStatuses,
+  deviceBooted,
+  hasAdb,
+  hasEmulator,
+  killEmulator,
+  listDevices,
+  startEmulator,
+} from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
 
@@ -67,18 +74,28 @@ export function createHttpServer(): http.Server {
           return;
         }
         try {
-          const { avd, headless } = JSON.parse(await readBody(req)) as { avd?: string; headless?: boolean };
+          const { avd, headless, cold } = JSON.parse(await readBody(req)) as {
+            avd?: string;
+            headless?: boolean;
+            cold?: boolean; // skip the saved snapshot — recovers a crash-on-boot AVD
+          };
           if (!avd) {
             json(res, 400, { ok: false, error: 'avd required' });
             return;
           }
-          json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless }) });
+          json(res, 200, { ok: true, ...startEmulator(avd, { headless: !!headless, cold: !!cold }) });
         } catch (e) {
           json(res, 500, { ok: false, error: (e as Error).message });
         }
       })
-      // Shut down a running emulator (control-gated, like /api/start). Used by the
-      // UI to close a headless emulator entirely when you're done streaming it.
+      .with({ path: '/api/health' }, () => {
+        const devices = listDevices().map((d) => ({
+          serial: d.serial,
+          avd: d.avd,
+          booted: deviceBooted(d.serial),
+        }));
+        json(res, 200, { accel: accelStatus(), adb: hasAdb(), emulator: hasEmulator(), devices });
+      })
       .with({ path: '/api/stop', method: 'POST' }, async () => {
         if (!isAuthorized(url)) {
           json(res, 403, { ok: false, error: 'view-only session' });
@@ -86,9 +103,14 @@ export function createHttpServer(): http.Server {
         }
         try {
           const { serial: reqSerial } = JSON.parse(await readBody(req)) as { serial?: string };
-          const serial = resolveSerial(reqSerial ?? null);
+
+          const devs = listDevices();
+          const want = (reqSerial ?? '').toLowerCase();
+          const serial = want
+            ? devs.find((d) => d.serial.toLowerCase() === want || d.avd.toLowerCase() === want)?.serial
+            : devs[0]?.serial;
           if (!serial) {
-            json(res, 400, { ok: false, error: 'no matching device' });
+            json(res, 400, { ok: false, error: 'no matching running device' });
             return;
           }
           killEmulator(serial);

@@ -6,7 +6,7 @@
 // waits until it's ready. One quiet line of output either way. Run this instead
 // of hand-starting the server and watching its logs.
 //
-//   bun ensure-server.mjs            # or: node ensure-server.mjs
+//   node ensure-server.mjs   (works under node or bun)
 //   bun ensure-server.mjs --port 4000
 //
 // Env: STREAM_DROID_PORT overrides the port (default 3200).

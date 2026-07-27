@@ -4,8 +4,8 @@ Expose the session over a public URL with a scannable QR in the terminal, via
 [localtunnel](https://github.com/localtunnel/localtunnel).
 
 ```bash
-bun run src/server.ts --tunnel            # -t : view-only public link
-bun run src/server.ts --tunnel-control    # -tc: link can also control
+npx stream-droid --tunnel            # -t : view-only public link
+npx stream-droid --tunnel-control    # -tc: link can also control
 ```
 
 On start it prints the public link and a QR:

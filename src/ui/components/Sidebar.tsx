@@ -14,16 +14,14 @@ interface Props {
   activeSerial: string | null;
   liveSerial: string | null;
   booting: Set<string>;
-  // Any AVD booting? Disables conflicting controls (other Start/Stream buttons
-  // and the headless toggle) until the boot resolves.
+  stopping: Set<string>;
   busy: boolean;
-  // AVDs booted headless this session — their "close" shuts the emulator down.
-  headlessBooted: Set<string>;
   headless: boolean;
   onHeadless: (v: boolean) => void;
   onStream: (serial: string) => void;
   onStart: (avd: string) => Promise<void>;
   onCloseDevice: () => void;
+  onShutdownDevice: () => void;
   onClose: () => void;
 }
 
@@ -32,13 +30,14 @@ export function Sidebar({
   activeSerial,
   liveSerial,
   booting,
+  stopping,
   busy,
-  headlessBooted,
   headless,
   onHeadless,
   onStream,
   onStart,
   onCloseDevice,
+  onShutdownDevice,
   onClose,
 }: Props) {
   return (
@@ -68,14 +67,16 @@ export function Sidebar({
             active={a.serial === activeSerial}
             streaming={a.serial != null && a.serial === liveSerial}
             booting={booting.has(a.name)}
+            stopping={stopping.has(a.name)}
             busy={busy}
-            streamingHeadless={headlessBooted.has(a.name)}
+            streamingHeadless={a.headless}
             onStream={(s) => {
               onStream(s);
               onClose();
             }}
             onStart={onStart}
             onCloseDevice={onCloseDevice}
+            onShutdownDevice={onShutdownDevice}
           />
         ))}
       </div>

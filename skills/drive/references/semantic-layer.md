@@ -7,8 +7,8 @@ on emulators and physical devices.
 ## Read the on-screen elements
 
 ```bash
-bun scripts/drive.mjs ui               # every clickable element: id · text · center
-bun scripts/drive.mjs ui internet      # filter by a case-insensitive substring
+node scripts/drive.mjs ui               # every clickable element: id · text · center
+node scripts/drive.mjs ui internet      # filter by a case-insensitive substring
 ```
 
 Each element carries its `resourceId`, `text` / `content-desc`, `className`,
@@ -18,8 +18,8 @@ decoded, so text reads `Network & internet`, not `&amp;`.
 ## Tap an element
 
 ```bash
-bun scripts/drive.mjs tap:id search                    # by resource-id
-bun scripts/drive.mjs tap:text "Network & internet"    # by text / content-desc
+node scripts/drive.mjs tap:id search                    # by resource-id
+node scripts/drive.mjs tap:text "Network & internet"    # by text / content-desc
 ```
 
 The server resolves the first matching element's center and taps it via whatever

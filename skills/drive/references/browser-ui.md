@@ -4,16 +4,32 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
 
 ## Layout
 
-- **Sidebar (Emulators)** — every AVD: 🟢 running · 🟡 booting · ⚪ stopped.
+- **Sidebar (Emulators)** — every AVD: 🟢 running · 🟡 booting · ⚪ stopped,
+  ordered **most-recently-active first** (running ones on top, then stopped by
+  last-run recency).
   - **Start** on a stopped AVD boots it (tick **headless** first for no host
     window). **Stream** on a running one connects to it.
   - After **Start**, the row shows a spinner + **booting…** until the emulator
-    comes online (~20-60 s) — it doesn't silently revert to Start.
-  - The streaming row shows **● LIVE** with a **Close/Stop** button. If the app
-    booted that AVD **headless** (no window), it reads **Close** and shuts the
-    emulator down entirely (`adb emu kill`) — there's no window to fall back to.
-    Otherwise it reads **Stop** and just detaches the stream; the emulator keeps
-    running and can be re-streamed. (Re-selecting the already-live device is a
+    comes online (~20-60 s) — it doesn't silently revert to Start. Once it's up
+    the stream connects **automatically** (headless included), so you don't have
+    to click **Stream** yourself.
+  - If the emulator process dies during boot, the failure is surfaced **right away**
+    with the actual reason (e.g. `unknown skin name '…'`) — no waiting. If it just
+    hangs, the spinner gives up after ~2 min. Either way the notice offers a
+    one-click **Cold-boot** (skips a possibly-corrupt snapshot via
+    `-no-snapshot-load`); polling continues, so a slow boot that eventually lands
+    still shows up running in the sidebar.
+  - A row that's online to adb but whose Android framework isn't up yet shows 🟡
+    **starting…** (not a Stream button) until it's ready — 🟢 means booted and
+    streamable.
+  - The streaming row shows **● LIVE** with a **Close/Stop** button. If the
+    emulator is running **headless** (no window), it reads **Close** and shuts it
+    down entirely (`adb emu kill`) — there's no window to fall back to. Whether
+    it's headless is detected server-side from the emulator's process (`-no-window`),
+    so it's correct even if you didn't boot it from this browser or the server
+    restarted. A windowed emulator reads **Stop** and just detaches the stream; it
+    keeps running and can be re-streamed — next to Stop, a **⏻** button shuts it
+    down entirely when you do want that. (Re-selecting the already-live device is a
     no-op — it doesn't restart the capture.)
   - While any AVD is booting, the **other** controls are disabled to prevent
     conflicts — every other **Start**, the **Stream** action on running rows, and
@@ -22,8 +38,14 @@ Open the server URL (default http://localhost:3200). React + Tailwind; dark them
     untouched.
   - The streaming row shows a pulsing **● LIVE** badge instead of Stream.
   - Polls `/api/state` every 3 s to reflect boot/shutdown.
-- **Main** — the live device, nav buttons (◀ Back · ● Home · ■ Recents), and a
-  status line: `serial · WxH · codec` (+ view-only when applicable).
+- **Main** — the live device with nav buttons (◀ Back · ● Home · ■ Recents) and a
+  status line (`serial · WxH · codec`, + view-only when applicable). The nav bar,
+  the `click = tap · drag = swipe · type = keys` hint, and the status line show
+  **only while a device is live**.
+  - **When nothing is streaming**, a device-shaped empty state replaces the
+    preview: it offers a one-click **▶ Start <name>** for your most-recent
+    emulator (or guidance to install the SDK emulator if none exist), reflects an
+    in-progress boot, and points to the sidebar for the rest.
 
 ## Driving
 
@@ -42,9 +64,10 @@ On the device surface:
 - **Preview overlay** — when frames aren't flowing, the preview shows a state
   instead of a frozen/blank frame: a spinner while **connecting**, and
   **device disconnected** (amber) when the stream drops, over the last frame.
-- **Browser-tab title** — reflects what's streaming: `● Pixel_9 · stream-droid`
-  when live (the AVD name if known, else the serial), `⚠ …` when disconnected,
-  and just `stream-droid` when idle.
+  Connecting is patient — if you stream an emulator that's still booting, it waits
+  for the framework to come up (up to ~2.5 min) rather than erroring early.
+- **Browser-tab title** — `● <name> · streaming` only while a device is live
+  (the AVD name if known, else the serial); otherwise just `stream-droid`.
 
 ## Instant preview (poster)
 
