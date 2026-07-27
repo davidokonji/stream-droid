@@ -2,8 +2,9 @@
 // named target emulator, and opening the browser.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { match } from 'ts-pattern';
 import { config, fail } from './config.ts';
 import { log } from './log.ts';
@@ -51,14 +52,22 @@ function buildAsset(label: string, cmd: string, args: string[]): void {
   if (r.status !== 0) fail(`${label} build failed`, `try it manually: ${cmd} ${args.join(' ')}`);
 }
 
+// Resolve @tailwindcss/cli's JS entry so we can run it under the *current* runtime
+// (process.execPath — node or bun) rather than a hardcoded `npx`/`bunx`.
+function tailwindCli(): string {
+  const pkgPath = createRequire(import.meta.url).resolve('@tailwindcss/cli/package.json');
+  const bin = JSON.parse(readFileSync(pkgPath, 'utf8')).bin as string | Record<string, string>;
+  return join(dirname(pkgPath), typeof bin === 'string' ? bin : bin.tailwindcss!);
+}
+
 // Build the browser assets on first run so the server works with no separate
 // build step (mirrors `npx serve-sim`'s one-command UX). Both build under the
-// current runtime — no bun required. The published package ships them prebuilt,
-// so this only runs from an unbuilt source checkout.
+// current runtime — no bun (or node) hardcoded. The published package ships them
+// prebuilt, so this only runs from an unbuilt source checkout.
 export function ensureAssetsBuilt(): void {
   if (!existsSync(join(config.PUBLIC, 'app.css'))) {
-    buildAsset('styles', 'npx', [
-      '@tailwindcss/cli',
+    buildAsset('styles', process.execPath, [
+      tailwindCli(),
       '-i',
       'src/ui/styles.css',
       '-o',
@@ -67,7 +76,6 @@ export function ensureAssetsBuilt(): void {
     ]);
   }
   if (!existsSync(join(config.PUBLIC, 'client.js'))) {
-    // esbuild via scripts/build-client.mjs — runs under whatever launched us.
     buildAsset('client', process.execPath, ['scripts/build-client.mjs']);
   }
 }

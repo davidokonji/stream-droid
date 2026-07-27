@@ -306,4 +306,6 @@ async function main() {
   }
 }
 
-void main();
+// A clean `drive: …` line on any failure (e.g. the server is down, so a bare
+// fetch in boot/kill rejects) instead of an unhandled-rejection stack trace.
+main().catch((e) => die(e?.message ?? String(e)));

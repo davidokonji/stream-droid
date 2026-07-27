@@ -86,9 +86,16 @@ export function createHttpServer(): http.Server {
         }
         try {
           const { serial: reqSerial } = JSON.parse(await readBody(req)) as { serial?: string };
-          const serial = resolveSerial(reqSerial ?? null);
+          // Accept an adb serial OR an AVD name — resolveSerial echoes the value
+          // verbatim, so a bare name would make `adb -s <name> emu kill` fail. Map
+          // it to a running serial here (empty request → the first running device).
+          const devs = listDevices();
+          const q = (reqSerial ?? '').toLowerCase();
+          const serial = q
+            ? devs.find((d) => d.serial.toLowerCase() === q || d.avd.toLowerCase() === q)?.serial
+            : devs[0]?.serial;
           if (!serial) {
-            json(res, 400, { ok: false, error: 'no matching device' });
+            json(res, 400, { ok: false, error: 'no matching running device' });
             return;
           }
           killEmulator(serial);

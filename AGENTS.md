@@ -118,8 +118,9 @@ skill change.
   lives in `useDeviceStream`; components stay declarative. Import React types by
   name (`import { useRef, type RefObject } from 'react'`) — do **not** use the
   `React.X` global namespace (breaks under `verbatimModuleSyntax`). Client is
-  built with `bun build --production` (sets `NODE_ENV`); **don't** use
-  `--minify --define` — that mismatches jsxDEV and crashes.
+  built by `scripts/build-client.mjs` (esbuild, under node or bun; a plugin wraps
+  jmuxer's UMD so its default export resolves) — set `NODE_ENV=production` via
+  `define`, as that script does.
 - **Imports use explicit `.ts`/`.tsx` extensions** (bundler resolution).
 - **Types for untyped deps** go in `src/types/*.d.ts` (module declarations).
 - **No `any`.** Type dynamic gRPC/proto surfaces with narrow interfaces (see
