@@ -49,9 +49,6 @@ export function createHttpServer(): http.Server {
     const url = req.url ?? '/';
     const path = url.split('?')[0] ?? '/'; // route on the path; auth reads ?k= off `url`
     const q = new URL(url, 'http://localhost').searchParams;
-    // No per-request access log: every route here is the tool's own internal
-    // traffic (the browser client + drive.mjs), and the 3 s poll would flood the
-    // terminal — even under -v. Real debug detail lives in the WS/capture logs.
 
     await match({ path, method: req.method })
       // Emulator state for the sidebar.
