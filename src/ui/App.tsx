@@ -72,7 +72,6 @@ export function App() {
     }
   };
 
-
   const closeActive = async (): Promise<void> => {
     if (!serial) return;
     setNotice(null);
