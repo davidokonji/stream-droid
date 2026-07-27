@@ -28,6 +28,8 @@ Commands (run and exit):
 
 Options:
       --port <n>             HTTP + WS port (default 3200)
+      --host <addr>          bind address (default 127.0.0.1 — loopback only;
+                             tunnels still work). Use 0.0.0.0 to expose on the LAN.
       --serial <s>           device to stream — adb serial or AVD name
                              (aliases: --emulator, --avd)
       --capture <mode>       screenrecord (default) | scrcpy | grpc (emulator-only)

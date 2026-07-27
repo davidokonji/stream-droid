@@ -11,8 +11,8 @@ the Android analogue of [serve-sim](https://github.com/EvanBacon/serve-sim). A
 React UI shows the live screen with a sidebar to list/boot AVDs; a bun server
 bridges the browser to `adb` (and, for emulators, the emulator gRPC API).
 
-It's a **sketch**, not production: no auth beyond the optional tunnel token, one
-client per device assumed, localhost-first.
+It's a **sketch**, not production: one client per device assumed, and
+**loopback-bound by default** (control needs the tunnel token, or a local request).
 
 ## Stack & tooling
 
@@ -150,11 +150,18 @@ skill change.
   `screencap` PNG (h264 modes) and the client sets it as the `<video>`'s
   **`poster`** attribute. Do **not** "fix" this by hiding the video to show a
   canvas — a `display:none` video won't autoplay and playback stalls forever.
+- **Network exposure.** The server binds **`127.0.0.1`** by default (`config.HOST`),
+  so it isn't reachable from the LAN; tunnels still work (the relay connects over
+  loopback). `--host 0.0.0.0` opts into LAN exposure. `config.isRemote(req)` =
+  came over the relay (forwarding header) or a non-loopback address;
+  `config.canControl(req)` = local operator **or** control token.
 - **Tunnel security.** `--tunnel` is **view-only** by default; control is gated
   by a random token (`config.CONTROL_TOKEN`). Local browser gets `?k=<token>`;
-  `--tunnel-control` bakes it into the shared link. WS drops control when
-  unauthorized; `/api/start` returns 403. localtunnel is a public relay — treat
-  as untrusted.
+  `--tunnel-control` bakes it into the shared link. Control + sensitive reads
+  (`/api/{start,stop,launch,apps,hierarchy,health}` and WS input) require
+  `canControl`, so a view-only viewer only watches. The share panel/link/QR and
+  `/api/tunnel` stop are **host-only** (`!isRemote`). localtunnel is a public relay
+  — treat as untrusted.
 - **Semantic layer.** `/api/hierarchy` = `uiautomator dump` parsed (decode XML
   entities!). `{type:'tapElement', id|text}` resolves an element center → normal
   tap, so it works across all input backends.

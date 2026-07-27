@@ -17,7 +17,12 @@ export function targetSerial(): string {
 }
 
 export function resolveSerial(requested?: string | null): string {
-  if (requested) return requested;
+  if (requested) {
+    // Accept only a serial/AVD name that's actually running — don't let a caller
+    // point us at an arbitrary adb target.
+    const t = requested.toLowerCase();
+    return listDevices().find((d) => d.serial.toLowerCase() === t || d.avd.toLowerCase() === t)?.serial ?? '';
+  }
   if (config.TARGET) return targetSerial();
   return listDevices()[0]?.serial ?? '';
 }

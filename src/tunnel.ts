@@ -64,7 +64,7 @@ type OnDied = (h: TunnelHandle | undefined) => void;
 
 async function openLocaltunnel(port: number, onDied: OnDied): Promise<TunnelHandle> {
   const localtunnel = (await import('localtunnel')).default;
-  const t = await localtunnel({ port });
+  const t = await localtunnel({ port, local_host: '127.0.0.1' });
   const handle: TunnelHandle = { url: t.url, close: () => t.close() };
   t.on('close', () => onDied(handle));
   return handle;
@@ -75,7 +75,7 @@ async function openLocaltunnel(port: number, onDied: OnDied): Promise<TunnelHand
 async function openCloudflared(port: number, onDied: OnDied): Promise<TunnelHandle> {
   const bin = await resolveCloudflaredBin();
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'], {
+    const child = spawn(bin, ['tunnel', '--url', `http://127.0.0.1:${port}`, '--no-autoupdate'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let handle: TunnelHandle | undefined;

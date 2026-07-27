@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { match } from 'ts-pattern';
-import { config, isAuthorized } from './config.ts';
+import { config, isRemote, canControl } from './config.ts';
 import { adbFor, resolveSerial } from './adb.ts';
 import {
   accelStatus,
@@ -36,14 +36,6 @@ const json = (res: http.ServerResponse, code: number, body: unknown): void => {
   res.writeHead(code, { 'content-type': 'application/json' });
   res.end(JSON.stringify(body));
 };
-
-// Remote = not the local operator, so no control-token share link/QR or stop.
-// Loopback + no relay header is the operator; a LAN peer (non-loopback, our port
-// binds 0.0.0.0) or a tunnel viewer (adds a forwarding header) is remote.
-const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-const isRemote = (req: http.IncomingMessage): boolean =>
-  Boolean(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip']) ||
-  !LOOPBACK.has(req.socket.remoteAddress ?? '');
 
 function serveStatic(res: http.ServerResponse, path: string): void {
   const file = path === '/' ? '/index.html' : path;
@@ -97,7 +89,7 @@ export function createHttpServer(): http.Server {
       })
       // Boot an AVD (control-gated).
       .with({ path: '/api/start', method: 'POST' }, async () => {
-        if (!isAuthorized(url)) {
+        if (!canControl(req)) {
           json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
@@ -117,6 +109,10 @@ export function createHttpServer(): http.Server {
         }
       })
       .with({ path: '/api/health' }, () => {
+        if (!canControl(req)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
         const devices = listDevices().map((d) => ({
           serial: d.serial,
           avd: d.avd,
@@ -125,7 +121,7 @@ export function createHttpServer(): http.Server {
         json(res, 200, { accel: accelStatus(), adb: hasAdb(), emulator: hasEmulator(), devices });
       })
       .with({ path: '/api/stop', method: 'POST' }, async () => {
-        if (!isAuthorized(url)) {
+        if (!canControl(req)) {
           json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
@@ -149,6 +145,10 @@ export function createHttpServer(): http.Server {
       })
       // App management: installed packages + current foreground app.
       .with({ path: '/api/apps' }, () => {
+        if (!canControl(req)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
         const serial = resolveSerial(q.get('serial'));
         if (!serial) {
           json(res, 400, { ok: false, error: 'no running device' });
@@ -167,7 +167,7 @@ export function createHttpServer(): http.Server {
       })
       // Launch an app by package (control-gated, like /api/start).
       .with({ path: '/api/launch', method: 'POST' }, async () => {
-        if (!isAuthorized(url)) {
+        if (!canControl(req)) {
           json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
@@ -190,6 +190,10 @@ export function createHttpServer(): http.Server {
       })
       // Semantic layer: the current window's accessibility/view hierarchy.
       .with({ path: '/api/hierarchy' }, async () => {
+        if (!canControl(req)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
         const serial = resolveSerial(q.get('serial'));
         if (!serial) {
           json(res, 400, { ok: false, error: 'no running device' });
