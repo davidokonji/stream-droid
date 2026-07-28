@@ -85,7 +85,7 @@ async function serve(): Promise<void> {
     }
     portTries += 1;
     config.PORT = startPort + portTries; // downstream URLs/tunnel/browser use the bound port
-    server.listen(config.PORT);
+    server.listen(config.PORT, config.HOST);
   });
 
   server.on('listening', () => {
@@ -122,7 +122,7 @@ async function serve(): Promise<void> {
     else openBrowser(localUrl);
   });
 
-  server.listen(startPort);
+  server.listen(startPort, config.HOST);
 }
 
 match(config.mode)

@@ -169,20 +169,24 @@ auto-update*). To pull a new version:
 /plugin update stream-droid@stream-droid     # update the installed plugin
 ```
 
-Claude Code decides an update is available by comparing the `version` field
-against what's installed — so the plugin manifests and skill docs must track
-`package.json`. This is **automated and enforced**, not manual:
+Claude Code decides an update is available by comparing the **published plugin
+version** against what's installed — so that version must advance **only on a
+stable release**, never on a dev bump. This is automated and enforced:
 
-- `bun run version:sync` writes `package.json`'s version into both
-  `.claude-plugin/*.json` and all four `skills/*/SKILL.md` (`metadata.version`).
-- The **stable release** workflow runs `version:sync` as part of the release
-  commit, so a release bumps everything together.
-- **CI guards it** — `bun run version:check` (part of `bun run check`, and a CI
-  step) fails if any manifest/skill version drifts from `package.json`.
+- The published plugin version is `.claude-plugin/plugin.json` (the manifest),
+  `.claude-plugin/marketplace.json` (the listing), and every `skills/*/SKILL.md`
+  (`metadata.version`) — one version, moved as a unit. `package.json` is the
+  separate dev/npm version and iterates freely; nothing follows it on a dev bump,
+  so in-progress branch work never advertises itself to installed users.
+- `bun run version:release` advances the published version to `package.json`'s.
+  Only the **stable release** workflow runs it (after `npm version`), so it moves
+  exactly once per release.
+- **CI guards it** — `bun run version:check` fails if the published files disagree
+  with each other, or if the published version gets *ahead* of `package.json`
+  (between releases it lags at the last released version, which is expected).
 
-So a normal release keeps them in step automatically; if you ever hand-edit
-`package.json`, run `bun run version:sync` and commit. skills.sh installs update by
-re-running `npx skills add davidokonji/stream-droid`.
+You don't hand-bump versions on a dev change — only a stable release moves them.
+skills.sh installs update by re-running `npx skills add davidokonji/stream-droid`.
 
 ---
 
@@ -229,8 +233,8 @@ Actions tab → **Publish stable** → *Run workflow* → choose `patch` / `mino
 `major`. The workflow then:
 
 1. runs `bun run check`;
-2. `npm version <type> -m "release: %s [skip beta]"` — bumps `package.json`,
-   commits + tags;
+2. `npm version <type>` bumps `package.json`, then `version:release` advances the
+   published plugin version (manifests + skills) to match; commits + tags the lot;
 3. pushes the commit and tag (via `GITHUB_TOKEN`, which doesn't trigger other
    workflows, so no beta is cut — the `[skip beta]` message is a backstop);
 4. `npm publish --provenance` → **`latest`**;
@@ -257,9 +261,9 @@ bunx stream-droid@beta     # newest beta
 ## Release checklist (stable)
 
 - [ ] CI green on `main`; `npm pack --dry-run` shows `public/client.js`, `public/app.css`, `src/`, `skills/`
-- [ ] Plugin manifests + skills stay in step with `package.json` automatically
-      (`version:sync` runs in the release commit; CI's `version:check` guards it) —
-      no manual version edits needed
+- [ ] The published plugin version (plugin manifests + skills) advances only on the
+      release (`version:release` runs in the release commit; CI's `version:check`
+      guards it) — no manual version edits needed
 - [ ] Actions tab → **Publish stable** → *Run workflow* → pick `patch` / `minor` / `major`
 - [ ] Confirm the run is green (it bumps, tags, pushes, and publishes `latest`)
 - [ ] Smoke test: `bunx stream-droid@<version> -h`

@@ -1,7 +1,7 @@
 import type http from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { match } from 'ts-pattern';
-import { config, isAuthorized } from './config.ts';
+import { config, canControl } from './config.ts';
 import { logger } from './log.ts';
 import { adbFor, deviceSize, resolveSerial, sendPoster } from './adb.ts';
 import { startCapture } from './capture/select.ts';
@@ -77,8 +77,9 @@ export function attachWebSocket(server: http.Server): void {
     const size = await awaitDeviceSize(ws, serial);
     if (!size) return;
 
-    // View-only unless the connection presents the control token (tunnel mode).
-    const authorized = isAuthorized(req.url);
+    // The local operator can drive; a remote viewer needs the control token, else
+    // view-only.
+    const authorized = canControl(req);
     log.info(
       `${addr} → ${serial} · ${config.CAPTURE} · ${size.w}×${size.h}${authorized ? '' : ' · view-only'}`,
     );

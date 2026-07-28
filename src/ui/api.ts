@@ -18,6 +18,18 @@ export async function startAvd(avd: string, headless: boolean, cold = false): Pr
   if (!out.ok) throw new Error(out.error ?? 'failed to start emulator');
 }
 
+// Stop sharing (close the public tunnel) without killing the server.
+export async function stopSharing(): Promise<void> {
+  const k = controlToken();
+  const res = await fetch(`/api/tunnel${k ? `?k=${encodeURIComponent(k)}` : ''}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'stop' }),
+  });
+  const out = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (!res.ok || !out?.ok) throw new Error(out?.error ?? `stop sharing failed (${res.status})`);
+}
+
 export async function stopEmulator(serial: string): Promise<void> {
   const k = controlToken();
   const res = await fetch(`/api/stop${k ? `?k=${encodeURIComponent(k)}` : ''}`, {

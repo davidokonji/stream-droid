@@ -3,6 +3,7 @@ export interface AvdStatus {
   running: boolean;
   serial: string | null;
   headless: boolean; // running windowless — its "close" fully kills the emulator
+  emulator: boolean; // emulator (bootable/killable) vs a physical device (no shutdown)
   booted: boolean | null; // running & framework up; false = still starting; null = stopped
   bootError: string | null; // why the last boot exited early (e.g. bad skin), else null
 }
@@ -10,11 +11,21 @@ export interface DeviceInfo {
   serial: string;
   avd: string;
 }
+export interface TunnelInfo {
+  active: boolean;
+  url: string | null; // public base URL while sharing
+  control: boolean; // shared link carries the control token
+  backend: string | null; // 'cloudflared' | 'localtunnel'
+  host: boolean; // caller is the local operator — the share panel is host-only
+  shareUrl: string | null; // the link to hand out (with ?k= in control mode); host-only
+  qr: string | null; // SVG QR of shareUrl; host-only
+}
 export interface State {
   avds: AvdStatus[];
   devices: DeviceInfo[];
   capture: string;
   target?: string; // preferred device: adb serial or AVD name (from the CLI)
+  tunnel?: TunnelInfo; // present when the server reports share status
 }
 
 export type Codec = 'h264' | 'png';

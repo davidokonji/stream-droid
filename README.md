@@ -148,11 +148,12 @@ a device through the server:
 The `drive` skill's helper starts the server for you and wraps the loop:
 
 ```bash
-bun skills/drive/scripts/ensure-server.mjs             # start the server headless (if needed)
-bun skills/drive/scripts/check.mjs                     # verify prerequisites
-bun skills/drive/scripts/drive.mjs shot                # screen.png
-bun skills/drive/scripts/drive.mjs ui internet         # elements matching "internet"
-bun skills/drive/scripts/drive.mjs tap:text "Network & internet"
+stream-droid-server             # start the server headless (if needed)
+stream-droid-check                     # verify prerequisites
+drive shot                # screen.png
+drive ui internet         # elements matching "internet"
+drive tap:text "Network & internet"
+stream-droid-server --stop      # stop the background server when done
 ```
 
 The helper scripts are plain ESM and run under **bun or node ≥ 18**.
@@ -194,9 +195,10 @@ auto-update under `/plugin` → **Marketplaces** to skip this):
 /reload-plugins                              # load it into the session
 ```
 
-Claude Code decides an update is available by comparing the plugin's `version`, so
-a new version only reaches installed users once it's **bumped** — that's automated
-on release and enforced by CI (see [docs/PUBLISHING.md](docs/PUBLISHING.md)).
+Claude Code decides an update is available by comparing the plugin's advertised
+**marketplace** version, which advances **only on a stable release** — so
+in-progress changes on branches never prompt installed users to update. Releases
+are cut via the publish-stable workflow (see [docs/PUBLISHING.md](docs/PUBLISHING.md)).
 
 **skills.sh** — re-run `npx skills add davidokonji/stream-droid`. **Manual** —
 re-copy the `skills/` tree.

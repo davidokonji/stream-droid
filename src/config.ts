@@ -4,6 +4,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import type { IncomingHttpHeaders } from 'node:http';
 
 const argv = process.argv.slice(2);
 const getArg = (flag: string, fallback: string): string => {
@@ -24,6 +25,8 @@ const VALUE_FLAGS = new Set([
   '--max-size',
   '--bit-rate',
   '--kill',
+  '--tunnel-backend',
+  '--host',
 ]);
 
 // Parse a bit-rate like "4000000", "3M", or "800K" → bits/sec (0 if unset/invalid).
@@ -74,6 +77,10 @@ const HERE = dirname(fileURLToPath(import.meta.url)); // src/
 
 export const config = {
   PORT: Number(getArg('--port', process.env.PORT ?? '3200')),
+  // Bind address. Loopback-only by default so the device isn't controllable from
+  // the LAN; tunnels still work (the relay connects over 127.0.0.1). Opt into
+  // LAN exposure with --host 0.0.0.0.
+  HOST: getArg('--host', process.env.STREAM_DROID_HOST ?? '127.0.0.1'),
   TARGET,
   CAPTURE,
   CODEC: (CAPTURE === 'grpc' ? 'png' : 'h264') as Codec, // gRPC → PNG frames, else H.264
@@ -93,6 +100,10 @@ export const config = {
   KILL,
   TUNNEL,
   TUNNEL_CONTROL,
+  // Which relay backs a share: 'cloudflared' (no visitor interstitial) or
+  // 'localtunnel' (no install; shows loca.lt's reminder page). 'auto' prefers
+  // cloudflared when its binary is on PATH, else falls back to localtunnel.
+  TUNNEL_BACKEND: getArg('--tunnel-backend', process.env.STREAM_DROID_TUNNEL_BACKEND ?? 'auto'),
   SECURE,
   CONTROL_TOKEN: SECURE ? randomBytes(16).toString('hex') : '',
   mode: (HELP ? 'help' : LIST ? 'list' : KILL ? 'kill' : LOG ? 'log' : 'serve') as Mode,
@@ -100,11 +111,32 @@ export const config = {
   PUBLIC: join(HERE, '..', 'public'),
 };
 
-// May a request/connection control the device? Always yes unless a control token
-// is in force (tunnel mode), in which case the `k` query must match.
+// Does the `k` query carry the control token? (Meaningful only in tunnel mode.)
 export function isAuthorized(reqUrl: string | undefined): boolean {
   if (!config.SECURE) return true;
   return new URL(reqUrl ?? '/', 'http://localhost').searchParams.get('k') === config.CONTROL_TOKEN;
+}
+
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+// A request is remote if it came over the relay (forwarding header) or from a
+// non-loopback address; a local operator request is neither.
+export function isRemote(req: { headers: IncomingHttpHeaders; socket: { remoteAddress?: string } }): boolean {
+  const h = req.headers;
+  return (
+    Boolean(h['x-forwarded-for'] || h['cf-connecting-ip']) || !LOOPBACK.has(req.socket.remoteAddress ?? '')
+  );
+}
+
+// May this request control the device or read sensitive device state? The local
+// operator always may; a remote caller needs the control token. View-only tunnel
+// viewers (remote, no token) may only watch the stream.
+export function canControl(req: {
+  headers: IncomingHttpHeaders;
+  socket: { remoteAddress?: string };
+  url?: string;
+}): boolean {
+  return !isRemote(req) || isAuthorized(req.url);
 }
 
 // Print an actionable error and exit.

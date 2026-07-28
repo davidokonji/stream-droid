@@ -6,14 +6,15 @@
 // waits until it's ready. One quiet line of output either way. Run this instead
 // of hand-starting the server and watching its logs.
 //
-//   node ensure-server.mjs   (works under node or bun)
+//   node ensure-server.mjs           (works under node or bun)
 //   bun ensure-server.mjs --port 4000
+//   node ensure-server.mjs --stop    (stop the running server — don't leave it lingering)
 //
 // Env: STREAM_DROID_PORT overrides the port (default 3200).
 
 import { spawn } from 'node:child_process';
 import { existsSync, openSync } from 'node:fs';
-import { get } from 'node:http';
+import { get, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,7 +52,45 @@ function startCommand() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// POST /api/shutdown; the server exits right after replying, so a dropped
+// connection is expected — resolve either way.
+function postShutdown() {
+  return new Promise((res) => {
+    const req = request({ host: HOST, port: PORT, path: '/api/shutdown', method: 'POST', timeout: 2000 }, (r) => {
+      r.resume();
+      r.on('end', res);
+    });
+    req.on('error', res);
+    req.on('timeout', () => {
+      req.destroy();
+      res();
+    });
+    req.end();
+  });
+}
+
+async function stop() {
+  if (!(await alive())) {
+    console.log(`no stream-droid server running on :${PORT}`);
+    return;
+  }
+  await postShutdown();
+  for (let i = 0; i < 20; i++) {
+    await sleep(200);
+    if (!(await alive())) {
+      console.log(`stopped stream-droid server on :${PORT}`);
+      return;
+    }
+  }
+  console.error(`server on :${PORT} did not stop`);
+  process.exit(1);
+}
+
 async function main() {
+  if (argv.includes('--stop')) {
+    await stop();
+    return;
+  }
   if (await alive()) {
     console.log(`stream-droid server already running on :${PORT}`);
     return;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { tv } from 'tailwind-variants';
-import { fetchState, startAvd, stopEmulator } from './api';
+import { fetchState, startAvd, stopEmulator, stopSharing } from './api';
 import { useDeviceStream } from './useDeviceStream';
 import { useKeyboard } from './useKeyboard';
 import { Sidebar } from './components/Sidebar';
@@ -8,7 +8,7 @@ import { Screen } from './components/Screen';
 import { NavBar } from './components/NavBar';
 import { LiveDot } from './components/LiveDot';
 import { Notice, type NoticeData } from './components/Notice';
-import type { AvdStatus } from './types';
+import type { AvdStatus, TunnelInfo } from './types';
 
 const layout = tv({
   slots: {
@@ -44,13 +44,27 @@ export function App() {
   const autoStream = useRef<string | null>(null);
   const bootingSince = useRef<Map<string, number>>(new Map());
   const [notice, setNotice] = useState<NoticeData | null>(null);
+  const [tunnel, setTunnel] = useState<TunnelInfo | null>(null);
 
   useKeyboard(send, controllable);
 
+  // Stop sharing (close the public tunnel) without killing the server.
+  const stopShare = async (): Promise<void> => {
+    try {
+      await stopSharing();
+      setTunnel((t) => (t ? { ...t, active: false, url: null } : t));
+    } catch (e) {
+      setNotice({ message: `Couldn't stop sharing: ${(e as Error).message}`, tone: 'error' });
+    }
+  };
+
+  // The streamed device's friendly name (AVD/model name, not the raw serial), for
+  // the tab title and the mobile top bar — kept in sync with the live device list.
+  const activeName = serial ? (avds.find((a) => a.serial === serial)?.name ?? serial) : null;
+
   useEffect(() => {
-    const name = live ? (avds.find((a) => a.serial === serial)?.name ?? serial) : null;
-    document.title = name ? `● ${name} · streaming` : 'stream-droid';
-  }, [serial, live, avds]);
+    document.title = live && activeName ? `● ${activeName} · streaming` : 'stream-droid';
+  }, [live, activeName]);
 
   const startBoot = useCallback(
     async (avd: string, opts: { cold?: boolean } = {}): Promise<void> => {
@@ -115,6 +129,7 @@ export function App() {
         const st = await fetchState();
         if (!alive) return;
         setAvds(st.avds);
+        setTunnel(st.tunnel ?? null);
         const nowMs = Date.now();
         const pending = [...bootingSince.current.keys()];
         const statusOf = (n: string): AvdStatus | undefined => st.avds.find((a) => a.name === n);
@@ -244,7 +259,7 @@ export function App() {
           <button className={s.burger()} aria-label="Open menu" onClick={() => setMenuOpen(true)}>
             ☰
           </button>
-          <span className="flex-1 truncate opacity-70">{serial ?? 'stream-droid'}</span>
+          <span className="flex-1 truncate opacity-70">{activeName ?? 'stream-droid'}</span>
           {live && <LiveDot />}
         </header>
       )}
@@ -269,6 +284,8 @@ export function App() {
             onCloseDevice={closeActive}
             onShutdownDevice={shutdownActive}
             onClose={() => setMenuOpen(false)}
+            tunnel={tunnel}
+            onStopShare={stopShare}
           />
         </div>
       )}

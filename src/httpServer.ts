@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { match } from 'ts-pattern';
-import { config, isAuthorized } from './config.ts';
+import { config, isRemote, canControl } from './config.ts';
 import { adbFor, resolveSerial } from './adb.ts';
 import {
   accelStatus,
@@ -16,6 +16,7 @@ import {
 } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
+import { stopTunnel, tunnelInfo } from './tunnel.ts';
 
 const STATIC: Record<string, string> = {
   '/': 'text/html; charset=utf-8',
@@ -58,18 +59,48 @@ export function createHttpServer(): http.Server {
     const q = new URL(url, 'http://localhost').searchParams;
 
     await match({ path, method: req.method })
-      // Emulator state for the sidebar.
+      // Emulator state for the sidebar (+ host-only share info).
       .with({ path: '/api/state' }, () => {
         json(res, 200, {
           avds: avdStatuses(),
           devices: listDevices(),
           capture: config.CAPTURE,
           target: config.TARGET,
+          tunnel: tunnelInfo(!isRemote(req)), // share panel is host-only
         });
+      })
+      // Shut the server down (host only) — lets an agent tear down the background
+      // server it started so it doesn't linger. Closes any tunnel; emulators stay.
+      .with({ path: '/api/shutdown', method: 'POST' }, () => {
+        if (isRemote(req)) {
+          json(res, 403, { ok: false, error: 'only the host can stop the server' });
+          return;
+        }
+        stopTunnel();
+        res.on('finish', () => setTimeout(() => process.exit(0), 30));
+        json(res, 200, { ok: true });
+      })
+      // Stop sharing without killing the server — host only (see isRemote).
+      .with({ path: '/api/tunnel', method: 'POST' }, async () => {
+        if (isRemote(req)) {
+          json(res, 403, { ok: false, error: 'only the host can manage sharing' });
+          return;
+        }
+        try {
+          const { action } = JSON.parse((await readBody(req)) || '{}') as { action?: string };
+          if (action !== 'stop') {
+            json(res, 400, { ok: false, error: 'unsupported action — only "stop"' });
+            return;
+          }
+          const stopped = stopTunnel();
+          json(res, 200, { ok: true, stopped, tunnel: tunnelInfo(true) });
+        } catch (e) {
+          json(res, 500, { ok: false, error: (e as Error).message });
+        }
       })
       // Boot an AVD (control-gated).
       .with({ path: '/api/start', method: 'POST' }, async () => {
-        if (!isAuthorized(url)) {
+        if (!canControl(req)) {
           json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
@@ -89,6 +120,10 @@ export function createHttpServer(): http.Server {
         }
       })
       .with({ path: '/api/health' }, () => {
+        if (!canControl(req)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
         const devices = listDevices().map((d) => ({
           serial: d.serial,
           avd: d.avd,
@@ -97,7 +132,7 @@ export function createHttpServer(): http.Server {
         json(res, 200, { accel: accelStatus(), adb: hasAdb(), emulator: hasEmulator(), devices });
       })
       .with({ path: '/api/stop', method: 'POST' }, async () => {
-        if (!isAuthorized(url)) {
+        if (!canControl(req)) {
           json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
@@ -121,6 +156,10 @@ export function createHttpServer(): http.Server {
       })
       // App management: installed packages + current foreground app.
       .with({ path: '/api/apps' }, () => {
+        if (!canControl(req)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
         const serial = resolveSerial(q.get('serial'));
         if (!serial) {
           json(res, 400, { ok: false, error: 'no running device' });
@@ -139,7 +178,7 @@ export function createHttpServer(): http.Server {
       })
       // Launch an app by package (control-gated, like /api/start).
       .with({ path: '/api/launch', method: 'POST' }, async () => {
-        if (!isAuthorized(url)) {
+        if (!canControl(req)) {
           json(res, 403, { ok: false, error: 'view-only session' });
           return;
         }
@@ -162,6 +201,10 @@ export function createHttpServer(): http.Server {
       })
       // Semantic layer: the current window's accessibility/view hierarchy.
       .with({ path: '/api/hierarchy' }, async () => {
+        if (!canControl(req)) {
+          json(res, 403, { ok: false, error: 'view-only session' });
+          return;
+        }
         const serial = resolveSerial(q.get('serial'));
         if (!serial) {
           json(res, 400, { ok: false, error: 'no running device' });

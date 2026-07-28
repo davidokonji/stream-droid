@@ -3,6 +3,11 @@ name: drive
 description: Use when building, testing, debugging, or exploring a mobile app on Android — Expo, React Native, Flutter, Jetpack Compose, or native Android (Kotlin/Java) — and you need to see or drive the emulator/device: screenshot the screen, read its on-screen UI, or tap/type/swipe/press keys. Uses the stream-droid server.
 license: MIT
 compatibility: Requires `adb` and a running device; the helper scripts run on node or bun ≥ 18 and start the stream-droid server for you.
+allowed-tools:
+  - Bash(drive *)
+  - Bash(stream-droid-server)
+  - Bash(stream-droid-server *)
+  - Bash(stream-droid-check)
 metadata:
   version: '0.4.6'
 ---
@@ -33,48 +38,59 @@ For related tasks there are sibling skills in this plugin:
 
 ## Prerequisites
 
-`adb` must see a device (`adb devices`). Then get a server ready — this starts it
-headless if one isn't already up, and stays quiet:
+`adb` must see a device (`adb devices`). The plugin puts three commands on your
+PATH — `drive` (the helper), `stream-droid-server` (start the server), and
+`stream-droid-check` (verify the setup) — so you call them by name, no paths.
+
+Get a server ready — this starts it headless if one isn't already up, and stays
+quiet:
 
 ```bash
-node scripts/ensure-server.mjs        # runs under node (or bun)
+stream-droid-server        # start (headless, in the background)
+stream-droid-server --stop # stop it when you're done — don't leave it running
 ```
+
+The server is a background process, so **stop it with `--stop` once you've finished
+driving** rather than leaving it lingering. (Any booted emulators are separate —
+shut those down with `/stream-droid:emulators` `kill`.)
 
 Optionally sanity-check the whole setup (node/bun, adb, a device, the server):
 
 ```bash
-node scripts/check.mjs                 # exits 0 when ready, 1 with what's missing
+stream-droid-check         # exits 0 when ready, 1 with what's missing
 ```
 
-The scripts target `localhost:3200` (override with `--port` / `STREAM_DROID_PORT`)
-and run under **node or bun ≥ 18**.
+The commands target `localhost:3200` (override with `--port` / `STREAM_DROID_PORT`)
+and run under **node or bun ≥ 18**. From a clone (not installed as a plugin), call
+the scripts directly instead: `node skills/drive/scripts/drive.mjs …` (and
+`…/ensure-server.mjs`, `…/check.mjs`).
 
 ## The loop
 
-1. **Look** — `node scripts/drive.mjs shot` → open `screen.png` to see the screen.
-2. **Read** — `node scripts/drive.mjs ui` → clickable elements with id / text / center.
+1. **Look** — `drive shot` → open `screen.png` to see the screen.
+2. **Read** — `drive ui` → clickable elements with id / text / center.
 3. **Act** — tap an element (robust) or coordinates; type; press keys.
 4. Repeat: screenshot again to confirm the result changed.
 
 ## Quick reference
 
-`scripts/drive.mjs` — run with `node` (or `bun`) from this skill dir:
+`drive` — the helper, on your PATH once the plugin is enabled:
 
 | Command | Does |
 |---|---|
-| `node scripts/drive.mjs devices` | list running devices |
-| `node scripts/drive.mjs shot [file]` | save a screenshot PNG (default `screen.png`) |
-| `node scripts/drive.mjs record [secs] [file]` | record the screen to MP4 (default 10s, `screen.mp4`) |
-| `node scripts/drive.mjs logcat [grep] [--lines N]` | pretty-print recent device logcat (default 200 lines) |
-| `node scripts/drive.mjs ui [grep]` | dump UI elements; optional case-insensitive text filter |
-| `node scripts/drive.mjs tap:text "Network & internet"` | tap the element whose text/desc contains this |
-| `node scripts/drive.mjs tap:id search` | tap by resource-id (full or the tail after `/`) |
-| `node scripts/drive.mjs tap 0.5 0.5` | tap normalized `[0..1]` coordinates |
-| `node scripts/drive.mjs longpress 0.5 0.5 [ms]` | press and hold (default 500ms) |
-| `node scripts/drive.mjs swipe 0.5 0.8 0.5 0.2` | swipe (normalized) — e.g. scroll up |
-| `node scripts/drive.mjs scroll 0.5 0.5 0.5` | scroll at a point by `dy` (and optional `dx`) |
-| `node scripts/drive.mjs text "hello world"` | type text into the focused field |
-| `node scripts/drive.mjs key VolumeUp` | keys — nav, media, volume, power (see below) |
+| `drive devices` | list running devices |
+| `drive shot [file]` | save a screenshot PNG (default `screen.png`) |
+| `drive record [secs] [file]` | record the screen to MP4 (default 10s, `screen.mp4`) |
+| `drive logcat [grep] [--lines N]` | pretty-print recent device logcat (default 200 lines) |
+| `drive ui [grep]` | dump UI elements; optional case-insensitive text filter |
+| `drive tap:text "Network & internet"` | tap the element whose text/desc contains this |
+| `drive tap:id search` | tap by resource-id (full or the tail after `/`) |
+| `drive tap 0.5 0.5` | tap normalized `[0..1]` coordinates |
+| `drive longpress 0.5 0.5 [ms]` | press and hold (default 500ms) |
+| `drive swipe 0.5 0.8 0.5 0.2` | swipe (normalized) — e.g. scroll up |
+| `drive scroll 0.5 0.5 0.5` | scroll at a point by `dy` (and optional `dx`) |
+| `drive text "hello world"` | type text into the focused field |
+| `drive key VolumeUp` | keys — nav, media, volume, power (see below) |
 
 (App control — `apps` / `launch` — lives in the **`/stream-droid:apps`** skill.)
 
@@ -84,11 +100,12 @@ Key names: `Enter` `Backspace` `Tab` `Home` `Back` `AppSwitch` `Escape` `Delete`
 
 Target a specific device with `--serial <serial|avd>` (or `$STREAM_DROID_SERIAL`);
 otherwise the first running device is used. Coordinates are normalized `[0..1]`,
-so they're resolution-independent. Run `node scripts/drive.mjs --help` for the full list.
+so they're resolution-independent. Run `drive --help` for the full list.
 
-**Where files land:** screenshots and recordings save to the folder you run the
-command from (the active folder), so captures stay with your work. Pass an
-explicit path to save elsewhere, or set `--out-dir` / `$STREAM_DROID_OUT_DIR`.
+**Where files land:** screenshots and recordings save to your project folder
+(`$CLAUDE_PROJECT_DIR`, else the folder you run from), so captures stay with your
+work rather than a scratch/temp dir. Pass an explicit path to save elsewhere, or
+set `--out-dir` / `$STREAM_DROID_OUT_DIR`.
 
 ## Common mistakes
 
@@ -96,7 +113,7 @@ explicit path to save elsewhere, or set `--out-dir` / `$STREAM_DROID_OUT_DIR`.
   back to `tap x y` only when nothing matches. Pixel taps break on other screens.
 - **Acting blind.** Always `shot` (and/or `ui`) before and after — don't assume
   the tap worked; confirm the screen changed.
-- **No device.** `node scripts/drive.mjs devices` first; if empty, boot one with the
+- **No device.** `drive devices` first; if empty, boot one with the
   **`/stream-droid:emulators`** skill.
 - **`tap:text` with the literal `&amp;`.** Text is already decoded — match on the
   real characters (`"Network & internet"`); a substring is fine.

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Bare-name launcher for the shared stream-droid `drive` helper. Claude Code adds
+# this plugin's bin/ to PATH while the plugin is enabled, so the skills can run
+# `drive avds` (etc.) instead of `node "$CLAUDE_PLUGIN_ROOT/…/drive.mjs" avds` — a
+# $CLAUDE_PLUGIN_ROOT expansion in the command trips a Bash approval prompt every
+# call, a bare name doesn't. Resolves its own path so it works wherever installed.
+self=$0
+case $self in
+  */*) ;;
+  *) self=$(command -v -- "$self") ;;
+esac
+root=$(CDPATH= cd -- "$(dirname -- "$self")/.." && pwd)
+exec node "$root/skills/drive/scripts/drive.mjs" "$@"

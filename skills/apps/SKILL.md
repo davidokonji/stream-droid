@@ -3,6 +3,10 @@ name: apps
 description: Use when you need to work with apps on an Android emulator/device via stream-droid — list installed packages, see the current foreground app, or launch an app (e.g. your Expo / React Native / Flutter / native Android build under test) by package name before driving it.
 license: MIT
 compatibility: Requires `adb` and a running device + stream-droid server; the helper runs on node or bun ≥ 18.
+allowed-tools:
+  - Bash(drive *)
+  - Bash(stream-droid-server)
+  - Bash(stream-droid-server *)
 metadata:
   version: '0.4.6'
 ---
@@ -22,26 +26,25 @@ drive it with the **`/stream-droid:drive`** skill.
 
 ## Prerequisites
 
-A device and a server. If one isn't up yet, the drive skill's helper starts it:
+A device and a server. If one isn't up yet, start it (and stop it when done — it
+runs in the background):
 
 ```bash
-node "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/ensure-server.mjs"
-# from a clone: node skills/drive/scripts/ensure-server.mjs
+stream-droid-server          # start (headless)
+stream-droid-server --stop   # stop when done
+# from a clone: node skills/drive/scripts/ensure-server.mjs [--stop]
 ```
 
 ## Commands
 
-App control is part of the shared `drive.mjs` helper (in the `drive` skill):
+App control is part of the shared **`drive`** helper (on your PATH once the plugin
+is enabled):
 
 ```bash
-# installed as a plugin:
-D="$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs"
-node "$D" apps                       # list installed packages + the foreground app
-node "$D" apps settings              # filter packages by substring
-node "$D" launch com.android.settings  # launch an app by package name
-
-# from a clone, the path is just:
-node skills/drive/scripts/drive.mjs apps
+drive apps                       # list installed packages + the foreground app
+drive apps settings              # filter packages by substring
+drive launch com.android.settings  # launch an app by package name
+# from a clone (not installed as a plugin): node skills/drive/scripts/drive.mjs apps
 ```
 
 After `launch`, switch to **`/stream-droid:drive`** and `shot` / `ui` to confirm

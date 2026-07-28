@@ -91,13 +91,14 @@ export function AvdRow({
           title={
             streamingHeadless
               ? 'Shut this headless emulator down'
-              : 'Stop streaming (the emulator keeps running)'
+              : 'Stop streaming (the device keeps running)'
           }
         >
           {streamingHeadless ? 'Close' : 'Stop'}
         </Button>
-        {/* Windowed emulators keep running on Stop; offer an explicit shutdown too. */}
-        {!streamingHeadless && (
+        {/* Windowed emulators keep running on Stop; offer an explicit shutdown too.
+            Physical devices can't be `emu kill`ed, so no shutdown for them. */}
+        {!streamingHeadless && avd.emulator && (
           <Button
             onClick={onShutdownDevice}
             title="Shut the emulator down"

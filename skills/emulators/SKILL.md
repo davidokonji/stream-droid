@@ -3,6 +3,10 @@ name: emulators
 description: Use when you need an Android emulator running to build/test a mobile app (Expo, React Native, Flutter, native Android) — list, boot (optionally headless), or shut down AVDs for a stream-droid session, e.g. start a specific AVD before driving it, see what's running, or kill one when done.
 license: MIT
 compatibility: Requires `adb`; booting/listing AVDs needs the Android SDK `emulator` and at least one AVD. Goes through the drive skill's helper (node or bun ≥ 18).
+allowed-tools:
+  - Bash(drive *)
+  - Bash(stream-droid-server)
+  - Bash(stream-droid-server *)
 metadata:
   version: '0.4.6'
 ---
@@ -27,26 +31,28 @@ Once a device is running, drive it with the **`/stream-droid:drive`** skill.
 
 ## Prerequisites
 
-A server (emulator management goes through its API). If one isn't up, the drive
-skill's helper starts it quietly:
+A server (emulator management goes through its API). If one isn't up, start it
+quietly (and stop it when you're done — it runs in the background):
 
 ```bash
-node "$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/ensure-server.mjs"
-# from a clone: node skills/drive/scripts/ensure-server.mjs
+stream-droid-server          # start (headless)
+stream-droid-server --stop   # stop when done
+# from a clone: node skills/drive/scripts/ensure-server.mjs [--stop]
 ```
 
 ## Commands
 
-Use the shared `drive.mjs` helper (in the `drive` skill) — it talks to the
-server's API, so you don't run the CLI or the server yourself:
+Everything goes through the shared **`drive`** helper — it talks to the server's
+API, so you don't run the CLI or the server yourself. The plugin puts `drive` on
+your PATH; call it by name:
 
 ```bash
-D="$CLAUDE_PLUGIN_ROOT/skills/drive/scripts/drive.mjs"   # clone: skills/drive/scripts/drive.mjs
-node "$D" avds                     # list every AVD: 🟢 running / ⚪ stopped (+ serial)
-node "$D" boot Pixel_9 --headless  # boot an AVD (omit --headless for a windowed one)
-node "$D" boot Pixel_9 --cold      # if it won't boot: skip its snapshot, full-boot it
-node "$D" health                   # accel/adb/emulator checks + per-device readiness
-node "$D" kill Pixel_9             # shut a running emulator down (serial or AVD name)
+drive avds                     # list every AVD: 🟢 running / ⚪ stopped (+ serial)
+drive boot Pixel_9 --headless  # boot an AVD (omit --headless for a windowed one)
+drive boot Pixel_9 --cold      # if it won't boot: skip its snapshot, full-boot it
+drive health                   # accel/adb/emulator checks + per-device readiness
+drive kill Pixel_9             # shut a running emulator down (serial or AVD name)
+# from a clone (not installed as a plugin): node skills/drive/scripts/drive.mjs avds
 ```
 
 - **`avds`** answers "what's running?" from the live server state — no CLI needed.

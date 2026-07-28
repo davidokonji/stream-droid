@@ -5,6 +5,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { config, fail } from './config.ts';
 import { adbFor } from './adb.ts';
 import { hasAdb, listAvds, listDevices } from './emulator.ts';
+import { openTunnel } from './tunnel.ts';
 
 export function requireAdb(): void {
   if (!hasAdb()) fail('`adb` not found on PATH.', 'Install Android platform-tools and add it to PATH.');
@@ -27,6 +28,8 @@ Commands (run and exit):
 
 Options:
       --port <n>             HTTP + WS port (default 3200)
+      --host <addr>          bind address (default 127.0.0.1 — loopback only;
+                             tunnels still work). Use 0.0.0.0 to expose on the LAN.
       --serial <s>           device to stream — adb serial or AVD name
                              (aliases: --emulator, --avd)
       --capture <mode>       screenrecord (default) | scrcpy | grpc (emulator-only)
@@ -38,6 +41,9 @@ Options:
   -v, --verbose              print debug logs (frames, control) + timestamps
   -t, --tunnel               expose a public link + console QR (view-only)
   -tc, --tunnel-control      tunnel with a controllable shared link
+      --tunnel-backend <b>   cloudflared | localtunnel | auto (default). auto prefers
+                             cloudflared (no visitor reminder page; binary auto-fetched),
+                             falling back to localtunnel.
 
 Env: PORT · ANDROID_SERIAL · CAPTURE · SCRCPY_SERVER_JAR · SCRCPY_CONTROL ·
      STREAM_DROID_HEADLESS · STREAM_DROID_VERBOSE
@@ -114,12 +120,13 @@ export function cmdLog(serial: string): void {
 
 // --tunnel: expose the local server via a public URL + a console QR code.
 // The shared link is view-only unless --tunnel-control adds the control token.
+// The tunnel handle lives in tunnel.ts so it can be stopped later (browser
+// "Stop sharing" button / `drive tunnel stop`) without killing the server.
 export async function startTunnel(port: number): Promise<void> {
   try {
-    const localtunnel = (await import('localtunnel')).default;
     const qr = await import('qrcode');
-    const tunnel = await localtunnel({ port });
-    const shareUrl = config.TUNNEL_CONTROL ? `${tunnel.url}?k=${config.CONTROL_TOKEN}` : tunnel.url;
+    const { shareUrl } = await openTunnel(port);
+    if (!shareUrl) return;
     console.log(
       `\n[stream-droid] public link (${config.TUNNEL_CONTROL ? 'full control' : 'view-only'}): ${shareUrl}`,
     );
@@ -128,7 +135,9 @@ export async function startTunnel(port: number): Promise<void> {
     if (!config.TUNNEL_CONTROL) {
       console.log('[stream-droid] viewers can watch but not drive — use --tunnel-control to share control.');
     }
-    tunnel.on('close', () => console.log('[stream-droid] tunnel closed'));
+    console.log(
+      '[stream-droid] stop sharing anytime: the browser “Stop sharing” button, or `drive tunnel stop`.',
+    );
   } catch (e) {
     console.error('[stream-droid] tunnel failed:', (e as Error).message);
   }

@@ -11,8 +11,8 @@ the Android analogue of [serve-sim](https://github.com/EvanBacon/serve-sim). A
 React UI shows the live screen with a sidebar to list/boot AVDs; a bun server
 bridges the browser to `adb` (and, for emulators, the emulator gRPC API).
 
-It's a **sketch**, not production: no auth beyond the optional tunnel token, one
-client per device assumed, localhost-first.
+It's a **sketch**, not production: one client per device assumed, and
+**loopback-bound by default** (control needs the tunnel token, or a local request).
 
 ## Stack & tooling
 
@@ -27,7 +27,7 @@ client per device assumed, localhost-first.
   current runtime; the npm package ships them prebuilt so running never builds.
 - **Language:** TypeScript, `strict`, **no `any`** (enforced by oxlint).
 - **Server deps:** `ws`, `@grpc/grpc-js` + `@grpc/proto-loader`, `ts-pattern`,
-  `localtunnel`, `qrcode`.
+  `localtunnel`, `cloudflared` (managed tunnel binary), `qrcode`.
 - **Client:** React 19 + `react-dom`, **Tailwind v4** (`@tailwindcss/cli`),
   **tailwind-variants** (`tv`), `jmuxer` (H.264→MSE). Bundled by `bun build`.
 - **Lint/format:** [OXC](https://oxc.rs) — `oxlint` (`.oxlintrc.json`) + `oxfmt`
@@ -63,9 +63,10 @@ src/
   log.ts           leveled logger; quiet by default — only error() prints without -v/--verbose
   adb.ts           adbFor(serial), resolveSerial/targetSerial, deviceSize, sendPoster
   controllers.ts   Control/Incoming types; adb/scrcpy/grpc controllers; pickController
-  httpServer.ts    static assets + /api/{state,start,stop,health,apps,launch,hierarchy} (ts-pattern routes)
+  httpServer.ts    static assets + /api/{state,start,stop,health,tunnel,shutdown,apps,launch,hierarchy} (ts-pattern routes)
   wsServer.ts      per-connection: stream frames out, route control in
   commands.ts      -h help · -a list · --kill · -l log · --tunnel
+  tunnel.ts        tunnel lifecycle: open/stop/info; cloudflared (default, via npm bin) or localtunnel
   lifecycle.ts     preflight, first-run asset build, boot target, openBrowser
   emulator.ts      list AVDs / running devices, boot (headless), tooling checks
   apps.ts          list packages / launch app / foreground app (adb; pure parsers)
@@ -93,8 +94,9 @@ skills/            the `stream-droid` plugin — four agent skills (namespaced /
 
 Skills reuse `drive`'s scripts via `$CLAUDE_PLUGIN_ROOT`, so they ship together.
 Server protocol/pipeline internals stay in the code + `docs/`, not the skill
-surface. Bump the version in all four `SKILL.md` + `.claude-plugin/*.json` on any
-skill change.
+surface. Don't hand-bump skill/plugin versions on a change — the **published plugin
+version** (`SKILL.md` + `.claude-plugin/*.json`) advances only on a stable release
+(`version:release`, run by publish-stable); CI's `version:check` guards it.
 
 ## Conventions (follow these)
 
@@ -149,11 +151,18 @@ skill change.
   `screencap` PNG (h264 modes) and the client sets it as the `<video>`'s
   **`poster`** attribute. Do **not** "fix" this by hiding the video to show a
   canvas — a `display:none` video won't autoplay and playback stalls forever.
+- **Network exposure.** The server binds **`127.0.0.1`** by default (`config.HOST`),
+  so it isn't reachable from the LAN; tunnels still work (the relay connects over
+  loopback). `--host 0.0.0.0` opts into LAN exposure. `config.isRemote(req)` =
+  came over the relay (forwarding header) or a non-loopback address;
+  `config.canControl(req)` = local operator **or** control token.
 - **Tunnel security.** `--tunnel` is **view-only** by default; control is gated
   by a random token (`config.CONTROL_TOKEN`). Local browser gets `?k=<token>`;
-  `--tunnel-control` bakes it into the shared link. WS drops control when
-  unauthorized; `/api/start` returns 403. localtunnel is a public relay — treat
-  as untrusted.
+  `--tunnel-control` bakes it into the shared link. Control + sensitive reads
+  (`/api/{start,stop,launch,apps,hierarchy,health}` and WS input) require
+  `canControl`, so a view-only viewer only watches. The share panel/link/QR and
+  `/api/tunnel` stop are **host-only** (`!isRemote`). localtunnel is a public relay
+  — treat as untrusted.
 - **Semantic layer.** `/api/hierarchy` = `uiautomator dump` parsed (decode XML
   entities!). `{type:'tapElement', id|text}` resolves an element center → normal
   tap, so it works across all input backends.

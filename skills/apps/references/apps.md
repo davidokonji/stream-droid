@@ -1,14 +1,15 @@
 # Apps (list, foreground, launch)
 
-App control over stream-droid, via the shared `drive.mjs` helper (in the `drive`
+App control over stream-droid, via the shared `drive` helper (in the `drive`
 skill). All of it is plain `adb` under the hood, so it works on emulators and
-physical devices.
+physical devices. `drive` is on your PATH once the plugin is enabled; from a clone,
+run `node skills/drive/scripts/drive.mjs …`.
 
 ## List installed packages + the foreground app
 
 ```bash
-node skills/drive/scripts/drive.mjs apps          # all packages + current foreground
-node skills/drive/scripts/drive.mjs apps settings # filter by a case-insensitive substring
+drive apps          # all packages + current foreground
+drive apps settings # filter by a case-insensitive substring
 ```
 
 - Packages come from `adb shell pm list packages` (the `package:` prefix stripped).
@@ -18,7 +19,7 @@ node skills/drive/scripts/drive.mjs apps settings # filter by a case-insensitive
 ## Launch an app
 
 ```bash
-node skills/drive/scripts/drive.mjs launch com.android.settings
+drive launch com.android.settings
 ```
 
 Launches by package name via its default launcher activity
