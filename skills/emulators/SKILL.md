@@ -8,7 +8,7 @@ allowed-tools:
   - Bash(stream-droid-server)
   - Bash(stream-droid-server *)
 metadata:
-  version: '0.4.6'
+  version: '0.4.10'
 ---
 
 # emulators
