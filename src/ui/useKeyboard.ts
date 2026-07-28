@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
 import type { Control } from './types';
 
-// Browser key names that map 1:1 to a device key we support (sent as-is).
 const SPECIAL = new Set([
   'Enter',
   'Backspace',
-  'Tab',
   'ArrowUp',
   'ArrowDown',
   'ArrowLeft',
@@ -18,7 +16,7 @@ const SPECIAL = new Set([
 
 export function useKeyboard(send: (msg: Control) => void, enabled = true): void {
   useEffect(() => {
-    if (!enabled) return; // view-only sessions don't capture the keyboard
+    if (!enabled) return;
     const onKey = (ev: KeyboardEvent): void => {
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return; // leave browser shortcuts alone
       if (SPECIAL.has(ev.key)) {

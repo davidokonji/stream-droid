@@ -1,31 +1,32 @@
-import { useRef, type RefObject } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { match } from 'ts-pattern';
 import { tv } from 'tailwind-variants';
 import type { Codec, ConnState, Control } from '../types';
 import { LiveDot } from './LiveDot';
+import { CoachMark } from './CoachMark';
 
 const LONG_PRESS_MS = 500; // a stationary hold this long becomes a long-press
 
 const screen = tv({
   slots: {
-    root: 'relative touch-none',
-    surface:
-      'block max-h-[78vh] max-w-full cursor-crosshair rounded-xl bg-black object-contain shadow-[0_8px_40px_rgba(0,0,0,0.5)]',
+    frame:
+      'relative flex touch-none items-center justify-center rounded-[26px] bg-[#0a0a0d] p-2.5 outline-none ring-1 ring-white/[0.12] shadow-[0_40px_110px_-34px_rgb(0_0_0_/_0.9)] focus-visible:ring-[var(--accent)]',
+    surface: 'block max-h-[80vh] max-w-full rounded-[18px] bg-black object-contain cursor-crosshair',
     badge:
-      'pointer-events-none absolute bottom-2 flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-[11px]',
+      'pill pointer-events-none absolute bottom-3 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
+    kbd: 'pill pointer-events-none absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide text-[var(--accent-soft)]',
     overlay:
-      'pointer-events-none absolute inset-0 z-10 flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-xl bg-black/65 px-4 text-center backdrop-blur-[1px]',
+      'enter-pop pointer-events-none absolute inset-2.5 z-10 flex flex-col items-center justify-center gap-2.5 rounded-[18px] bg-black/45 px-4 text-center backdrop-blur-md',
     spinner: 'h-6 w-6 animate-spin rounded-full border-2 border-neutral-600 border-t-neutral-200',
-    oDot: 'h-2.5 w-2.5 rounded-full bg-current',
+    oDot: 'h-2.5 w-2.5 rounded-full bg-current shadow-[0_0_8px_currentColor]',
     oTitle: 'text-[13px] font-medium',
-    oSub: 'text-[11px] text-neutral-400',
-    // Idle empty state: a dashed device-shaped placeholder — "your device shows here".
-    idle: 'flex h-[560px] max-h-[78vh] w-[280px] max-w-full flex-col items-center justify-center gap-4 rounded-[34px] border border-dashed border-[#2a323d] px-8 text-center',
-    idleIcon: 'text-neutral-600',
-    idleTitle: 'text-[14px] font-medium text-neutral-300',
+    oSub: 'text-[11px] text-neutral-300',
+    idle: 'flex h-[80vh] max-h-[80vh] w-[290px] max-w-full flex-col items-center justify-center gap-4 rounded-[18px] px-8 text-center',
+    idleIcon: 'text-neutral-300',
+    idleTitle: 'text-[15px] font-medium text-neutral-50',
     idleBtn:
-      'mt-1 cursor-pointer rounded-lg border border-[#2f6feb]/60 bg-[#12203b] px-4 py-2 text-[13px] font-medium text-[#6aa0ff] transition-colors hover:bg-[#16294a]',
-    idleSub: 'text-[12px] leading-relaxed text-neutral-500',
+      'mt-1 min-h-[44px] cursor-pointer rounded-lg border border-[rgb(var(--accent-rgb)_/_0.55)] bg-[rgb(var(--accent-rgb)_/_0.15)] px-4 py-2 text-[13px] font-medium text-[var(--accent-soft)] transition duration-150 ease-out hover:border-[rgb(var(--accent-rgb)_/_0.75)] hover:bg-[rgb(var(--accent-rgb)_/_0.28)] active:scale-[0.98]',
+    idleSub: 'text-[12px] leading-relaxed text-neutral-300',
   },
   variants: {
     hidden: { true: { surface: 'hidden' } },
@@ -51,6 +52,10 @@ interface Props {
   empty: EmptyState;
   controllable: boolean;
   onControl: (msg: Control) => void;
+  onFocusChange: (focused: boolean) => void;
+  focused: boolean;
+  coach: boolean;
+  onDismissCoach: () => void;
 }
 
 const clamp = (v: number): number => Math.min(1, Math.max(0, v));
@@ -65,12 +70,19 @@ export function Screen({
   empty,
   controllable,
   onControl,
+  onFocusChange,
+  focused,
+  coach,
+  onDismissCoach,
 }: Props) {
   const down = useRef<{ x: number; y: number; t: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const rippleId = useRef(0);
+  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const png = codec === 'png';
   const idleState = state === 'idle';
   const s = screen();
-  const { root, surface, badge, overlay, spinner, oDot, oTitle, oSub } = s;
+  const { frame, surface, badge, overlay, spinner, oDot, oTitle, oSub } = s;
 
   const rect = (): DOMRect => (png ? canvasRef.current! : videoRef.current!).getBoundingClientRect();
   const norm = (ev: { clientX: number; clientY: number }): { x: number; y: number } => {
@@ -78,12 +90,31 @@ export function Screen({
     return { x: clamp((ev.clientX - r.left) / r.width), y: clamp((ev.clientY - r.top) / r.height) };
   };
 
+  const ripple = (ev: { clientX: number; clientY: number }): void => {
+    const f = frameRef.current;
+    if (!f) return;
+    const r = f.getBoundingClientRect();
+    const id = ++rippleId.current;
+    setRipples((rs) => [...rs, { id, x: ev.clientX - r.left, y: ev.clientY - r.top }]);
+    setTimeout(() => setRipples((rs) => rs.filter((p) => p.id !== id)), 480);
+  };
+
   return (
     <div
-      className={root()}
+      ref={frameRef}
+      className={frame()}
+      tabIndex={controllable ? 0 : undefined}
+      role={controllable ? 'application' : undefined}
+      aria-label={
+        controllable ? 'Android device — click to tap, drag to swipe, type to send keys' : undefined
+      }
+      onFocus={() => onFocusChange(true)}
+      onBlur={() => onFocusChange(false)}
       onPointerDown={(ev) => {
         if (!controllable) return;
+        frameRef.current?.focus();
         down.current = { ...norm(ev), t: Date.now() };
+        ripple(ev);
         (ev.target as HTMLElement).setPointerCapture(ev.pointerId);
       }}
       onPointerUp={(ev) => {
@@ -108,11 +139,18 @@ export function Screen({
       }}
     >
       {live && (
-        <div className={badge({ class: 'left-2' })}>
+        <div className={badge({ class: 'left-3' })}>
           <LiveDot />
         </div>
       )}
-      {!controllable && <div className={badge({ class: 'right-2 text-amber-300' })}>👁 view-only</div>}
+      {!controllable && (
+        <div className={badge({ class: 'right-3 font-medium tracking-wide text-amber-300' })}>view-only</div>
+      )}
+      {controllable && live && focused && <div className={s.kbd()}>⌨ keyboard → device</div>}
+
+      {ripples.map((p) => (
+        <span key={p.id} className="ripple" style={{ left: p.x, top: p.y }} />
+      ))}
 
       {match(state)
         .with('idle', () => (
@@ -136,7 +174,7 @@ export function Screen({
             <span className={s.idleTitle()}>{empty.title}</span>
             {!empty.busy && empty.onStart && (
               <button className={s.idleBtn()} onClick={empty.onStart}>
-                ▶ {empty.startLabel}
+                {empty.startLabel}
               </button>
             )}
             <span className={s.idleSub()}>{empty.hint}</span>
@@ -145,15 +183,13 @@ export function Screen({
         .with('connecting', () => (
           <div className={overlay()}>
             <span className={spinner()} />
-            <span className={oTitle({ class: 'text-neutral-300' })}>Connecting…</span>
+            <span className={oTitle({ class: 'text-neutral-200' })}>Connecting…</span>
           </div>
         ))
         .with('disconnected', () => (
           <div className={overlay()}>
             <span className={oDot({ class: 'text-amber-300' })} />
             <span className={oTitle({ class: 'text-amber-300' })}>Device disconnected</span>
-            {/* A view-only shared viewer has no sidebar to reconnect from — it's
-                the host's session to resume. */}
             <span className={oSub()}>
               {controllable ? 'Reconnect from the sidebar' : 'Waiting for the host…'}
             </span>
@@ -177,6 +213,8 @@ export function Screen({
         className={surface({ hidden: png || idleState, viewOnly: !controllable })}
       />
       <canvas ref={canvasRef} className={surface({ hidden: !png || idleState, viewOnly: !controllable })} />
+
+      {controllable && live && coach && <CoachMark onDismiss={onDismissCoach} />}
     </div>
   );
 }

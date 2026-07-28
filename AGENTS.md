@@ -156,13 +156,30 @@ version** (`SKILL.md` + `.claude-plugin/*.json`) advances only on a stable relea
   loopback). `--host 0.0.0.0` opts into LAN exposure. `config.isRemote(req)` =
   came over the relay (forwarding header) or a non-loopback address;
   `config.canControl(req)` = local operator **or** control token.
-- **Tunnel security.** `--tunnel` is **view-only** by default; control is gated
+- **Tunnel security.** Sharing is **view-only** by default; control is gated
   by a random token (`config.CONTROL_TOKEN`). Local browser gets `?k=<token>`;
-  `--tunnel-control` bakes it into the shared link. Control + sensitive reads
-  (`/api/{start,stop,launch,apps,hierarchy,health}` and WS input) require
-  `canControl`, so a view-only viewer only watches. The share panel/link/QR and
-  `/api/tunnel` stop are **host-only** (`!isRemote`). localtunnel is a public relay
-  — treat as untrusted.
+  the shared link carries it only in control mode. **Two permission tiers for a
+  remote:** *driving* (WS input, `/api/{launch,apps,hierarchy,health}`) needs
+  `canControl` (the token) — a control viewer drives, a view-only viewer only
+  watches; *management* (`/api/{start,stop}` device lifecycle, both `/api/tunnel`
+  actions, `/api/shutdown`) is **host-only** (`!isRemote`), so no remote — even
+  with control — can boot/kill devices or reshare. `/api/state` returns
+  `host: !isRemote(req)`; the client hides the device rail + Share from non-host
+  viewers. cloudflared prints the URL before the edge routes, so `openTunnel`
+  runs `waitReachable()` (polls the public URL until our server answers) before
+  reporting the share ready — the link works when it's handed out, not a few
+  seconds later. `tunnelInfo.active` also requires `shareUrl`, so a poll mid-open
+  never shows a half-ready share. Two ways to open a tunnel,
+  both host-only: the CLI (`--tunnel` / `--tunnel-control`), or the app-bar
+  **Share** popover → `POST /api/tunnel {action:'start', control:boolean}`
+  (`openTunnel(port, control)` sets a per-tunnel `controlMode`; `{action:'stop'}`
+  closes it). **Opening any tunnel calls `config.ensureControlToken()` first** —
+  a server started without `--tunnel` has no token, so `isAuthorized()` is `true`
+  for everyone (fine while loopback-bound); minting one before the relay is live
+  keeps a UI-started view-only share (link without `?k=`) genuinely view-only.
+  The local operator stays in control (loopback is never `isRemote`). The share
+  panel/link/QR and both tunnel actions are gated `!isRemote`. localtunnel is a
+  public relay — treat as untrusted.
 - **Semantic layer.** `/api/hierarchy` = `uiautomator dump` parsed (decode XML
   entities!). `{type:'tapElement', id|text}` resolves an element center → normal
   tap, so it works across all input backends.
@@ -171,6 +188,12 @@ version** (`SKILL.md` + `.claude-plugin/*.json`) advances only on a stable relea
   are device pixels; keys are W3C DOM names (`GoHome`/`GoBack`/`AppSwitch`).
 - **Serial vs AVD name.** `--serial`/positional accept either; `resolveSerial`
   and `targetSerial` map by adb serial **or** AVD name (case-insensitive).
+- **Headless cleanup on exit.** Emulators this server booted headless are tracked
+  in `emulator.ts`'s `bootedHeadless`; `killHeadlessBooted()` `emu kill`s the online
+  ones and is wired into `/api/shutdown` and `SIGINT`/`SIGTERM` (`server.ts`
+  `cleanupOnExit`). Windowed emulators are left running — the user can see them.
+  So closing the server doesn't strand windowless devices. The UI defaults new
+  boots to headless unless a windowed emulator is already running.
 
 ## How to extend
 

@@ -1,9 +1,5 @@
-// Tunnel lifecycle: open a share, stop it without killing the server, and report
-// its state. Two backends — cloudflared (default; no visitor interstitial, binary
-// via the `cloudflared` npm package) and localtunnel (fallback) — loaded lazily.
-
 import { spawn, spawnSync } from 'node:child_process';
-import { config } from './config.ts';
+import { config, ensureControlToken } from './config.ts';
 import { logger } from './log.ts';
 
 const log = logger('tunnel');
@@ -15,6 +11,7 @@ interface TunnelHandle {
 
 let current: TunnelHandle | null = null;
 let backend: string | null = null;
+let controlMode = false; // whether this tunnel's shared link carries the control token
 let shareUrl: string | null = null; // carries ?k= in control mode
 let qrSvg: string | null = null;
 
@@ -32,9 +29,9 @@ export interface TunnelInfo {
 
 export function tunnelInfo(host: boolean): TunnelInfo {
   return {
-    active: current !== null,
+    active: current !== null && shareUrl !== null,
     url: current?.url ?? null,
-    control: config.TUNNEL_CONTROL,
+    control: controlMode,
     backend,
     host,
     shareUrl: host ? shareUrl : null,
@@ -70,8 +67,6 @@ async function openLocaltunnel(port: number, onDied: OnDied): Promise<TunnelHand
   return handle;
 }
 
-// Quick tunnel: `cloudflared tunnel --url …` prints a trycloudflare URL once it's
-// up, then stays running; killing the child closes it.
 async function openCloudflared(port: number, onDied: OnDied): Promise<TunnelHandle> {
   const bin = await resolveCloudflaredBin();
   return new Promise((resolve, reject) => {
@@ -109,15 +104,38 @@ async function openCloudflared(port: number, onDied: OnDied): Promise<TunnelHand
   });
 }
 
-// Open a tunnel to `port` (no-op if one is already open). Returns the trusted info.
-export async function openTunnel(port: number): Promise<TunnelInfo> {
+// Poll the public URL until the relay actually routes to us. cloudflared prints
+// the URL (and registers) before the edge hostname is reachable, so we'd hand out
+// a link that fails for a few seconds. A 5xx is the relay's "tunnel not up" error;
+// any response from our own server (< 500) means routing is live. Best-effort with
+// a cap — better to return a maybe-warming link than to hang.
+async function waitReachable(url: string): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(4000) });
+      if (res.status < 500) return; // our server answered → the edge is routing
+    } catch {
+      /* DNS/connect not ready yet — retry */
+    }
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+}
+
+// Open a tunnel to `port` (no-op if one is already open). `control` decides
+// whether the shared link hands out the control token. Returns the trusted info.
+export async function openTunnel(port: number, control: boolean): Promise<TunnelInfo> {
   if (current) return tunnelInfo(true);
+  // Mint a control token before the relay is reachable, so a view-only share
+  // (link without the token) genuinely can't control, start/stop, or reshare.
+  ensureControlToken();
   let which = pickBackend();
   let handle: TunnelHandle;
   const onDied: OnDied = (h) => {
     if (h && current === h) {
       current = null;
       backend = null;
+      controlMode = false;
       shareUrl = null;
       qrSvg = null;
       console.log('[stream-droid] tunnel closed (the relay dropped the connection)');
@@ -135,7 +153,9 @@ export async function openTunnel(port: number): Promise<TunnelInfo> {
   }
   current = handle;
   backend = which;
-  shareUrl = config.TUNNEL_CONTROL ? `${handle.url}?k=${config.CONTROL_TOKEN}` : handle.url;
+  await waitReachable(handle.url); // don't report the share ready until the link actually works
+  controlMode = control;
+  shareUrl = control ? `${handle.url}?k=${config.CONTROL_TOKEN}` : handle.url;
   const qr = await import('qrcode');
   qrSvg = await qr.toString(shareUrl, { type: 'svg', margin: 1 });
   return tunnelInfo(true);
@@ -147,6 +167,7 @@ export function stopTunnel(): boolean {
   const t = current;
   current = null;
   backend = null;
+  controlMode = false;
   shareUrl = null;
   qrSvg = null;
   try {

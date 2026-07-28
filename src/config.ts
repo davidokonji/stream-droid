@@ -77,18 +77,12 @@ const HERE = dirname(fileURLToPath(import.meta.url)); // src/
 
 export const config = {
   PORT: Number(getArg('--port', process.env.PORT ?? '3200')),
-  // Bind address. Loopback-only by default so the device isn't controllable from
-  // the LAN; tunnels still work (the relay connects over 127.0.0.1). Opt into
-  // LAN exposure with --host 0.0.0.0.
   HOST: getArg('--host', process.env.STREAM_DROID_HOST ?? '127.0.0.1'),
   TARGET,
   CAPTURE,
   CODEC: (CAPTURE === 'grpc' ? 'png' : 'h264') as Codec, // gRPC → PNG frames, else H.264
   SCRCPY_JAR: getArg('--scrcpy-server', process.env.SCRCPY_SERVER_JAR ?? ''),
   SCRCPY_CONTROL: getArg('--scrcpy-control', process.env.SCRCPY_CONTROL ?? 'on') !== 'off',
-  // Capture tuning (h264 backends). MAX_SIZE caps the longer edge in px (0 =
-  // native); BIT_RATE is bits/sec (0 = the backend's default). Downscaling and a
-  // lower bit-rate cut the on-device encode cost and bandwidth — see docs/capture.
   MAX_SIZE: Number(getArg('--max-size', process.env.STREAM_DROID_MAX_SIZE ?? '0')) || 0,
   BIT_RATE: parseBitRate(getArg('--bit-rate', process.env.STREAM_DROID_BIT_RATE ?? '0')),
   // Headless server: don't auto-open the browser (the app still serves).
@@ -100,9 +94,6 @@ export const config = {
   KILL,
   TUNNEL,
   TUNNEL_CONTROL,
-  // Which relay backs a share: 'cloudflared' (no visitor interstitial) or
-  // 'localtunnel' (no install; shows loca.lt's reminder page). 'auto' prefers
-  // cloudflared when its binary is on PATH, else falls back to localtunnel.
   TUNNEL_BACKEND: getArg('--tunnel-backend', process.env.STREAM_DROID_TUNNEL_BACKEND ?? 'auto'),
   SECURE,
   CONTROL_TOKEN: SECURE ? randomBytes(16).toString('hex') : '',
@@ -117,6 +108,14 @@ export function isAuthorized(reqUrl: string | undefined): boolean {
   return new URL(reqUrl ?? '/', 'http://localhost').searchParams.get('k') === config.CONTROL_TOKEN;
 }
 
+export function ensureControlToken(): string {
+  if (!config.CONTROL_TOKEN) {
+    config.CONTROL_TOKEN = randomBytes(16).toString('hex');
+    config.SECURE = true;
+  }
+  return config.CONTROL_TOKEN;
+}
+
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 // A request is remote if it came over the relay (forwarding header) or from a
@@ -128,9 +127,6 @@ export function isRemote(req: { headers: IncomingHttpHeaders; socket: { remoteAd
   );
 }
 
-// May this request control the device or read sensitive device state? The local
-// operator always may; a remote caller needs the control token. View-only tunnel
-// viewers (remote, no token) may only watch the stream.
 export function canControl(req: {
   headers: IncomingHttpHeaders;
   socket: { remoteAddress?: string };

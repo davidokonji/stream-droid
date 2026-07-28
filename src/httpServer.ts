@@ -11,12 +11,13 @@ import {
   hasAdb,
   hasEmulator,
   killEmulator,
+  killHeadlessBooted,
   listDevices,
   startEmulator,
 } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
-import { stopTunnel, tunnelInfo } from './tunnel.ts';
+import { openTunnel, stopTunnel, tunnelInfo } from './tunnel.ts';
 
 const STATIC: Record<string, string> = {
   '/': 'text/html; charset=utf-8',
@@ -45,7 +46,7 @@ function serveStatic(res: http.ServerResponse, path: string): void {
     return;
   }
   try {
-    res.writeHead(200, { 'content-type': contentType });
+    res.writeHead(200, { 'content-type': contentType, 'cache-control': 'no-store' });
     res.end(readFileSync(join(config.PUBLIC, file)));
   } catch {
     res.writeHead(404).end('not found');
@@ -66,6 +67,7 @@ export function createHttpServer(): http.Server {
           devices: listDevices(),
           capture: config.CAPTURE,
           target: config.TARGET,
+          host: !isRemote(req), // the local operator — device management + sharing are host-only
           tunnel: tunnelInfo(!isRemote(req)), // share panel is host-only
         });
       })
@@ -77,7 +79,12 @@ export function createHttpServer(): http.Server {
           return;
         }
         stopTunnel();
-        res.on('finish', () => setTimeout(() => process.exit(0), 30));
+        res.on('finish', () =>
+          setTimeout(() => {
+            killHeadlessBooted(); // don't leave windowless emulators running unseen
+            process.exit(0);
+          }, 30),
+        );
         json(res, 200, { ok: true });
       })
       // Stop sharing without killing the server — host only (see isRemote).
@@ -87,21 +94,30 @@ export function createHttpServer(): http.Server {
           return;
         }
         try {
-          const { action } = JSON.parse((await readBody(req)) || '{}') as { action?: string };
-          if (action !== 'stop') {
-            json(res, 400, { ok: false, error: 'unsupported action — only "stop"' });
+          const { action, control } = JSON.parse((await readBody(req)) || '{}') as {
+            action?: string;
+            control?: boolean;
+          };
+          if (action === 'start') {
+            const tunnel = await openTunnel(config.PORT, !!control);
+            json(res, 200, { ok: true, tunnel });
             return;
           }
-          const stopped = stopTunnel();
-          json(res, 200, { ok: true, stopped, tunnel: tunnelInfo(true) });
+          if (action === 'stop') {
+            const stopped = stopTunnel();
+            json(res, 200, { ok: true, stopped, tunnel: tunnelInfo(true) });
+            return;
+          }
+          json(res, 400, { ok: false, error: 'unsupported action — use "start" or "stop"' });
         } catch (e) {
           json(res, 500, { ok: false, error: (e as Error).message });
         }
       })
-      // Boot an AVD (control-gated).
+      // Boot an AVD — host only. Managing the emulator fleet isn't a "control
+      // viewer" capability; a shared session drives the device, it doesn't boot new ones.
       .with({ path: '/api/start', method: 'POST' }, async () => {
-        if (!canControl(req)) {
-          json(res, 403, { ok: false, error: 'view-only session' });
+        if (isRemote(req)) {
+          json(res, 403, { ok: false, error: 'only the host can start devices' });
           return;
         }
         try {
@@ -131,9 +147,10 @@ export function createHttpServer(): http.Server {
         }));
         json(res, 200, { accel: accelStatus(), adb: hasAdb(), emulator: hasEmulator(), devices });
       })
+      // Stop/kill a device — host only (same reasoning as /api/start).
       .with({ path: '/api/stop', method: 'POST' }, async () => {
-        if (!canControl(req)) {
-          json(res, 403, { ok: false, error: 'view-only session' });
+        if (isRemote(req)) {
+          json(res, 403, { ok: false, error: 'only the host can stop devices' });
           return;
         }
         try {

@@ -125,7 +125,7 @@ export function cmdLog(serial: string): void {
 export async function startTunnel(port: number): Promise<void> {
   try {
     const qr = await import('qrcode');
-    const { shareUrl } = await openTunnel(port);
+    const { shareUrl } = await openTunnel(port, config.TUNNEL_CONTROL);
     if (!shareUrl) return;
     console.log(
       `\n[stream-droid] public link (${config.TUNNEL_CONTROL ? 'full control' : 'view-only'}): ${shareUrl}`,

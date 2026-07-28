@@ -1,4 +1,4 @@
-import type { State } from './types';
+import type { State, TunnelInfo } from './types';
 import { controlToken } from './token';
 
 export async function fetchState(): Promise<State> {
@@ -16,6 +16,25 @@ export async function startAvd(avd: string, headless: boolean, cold = false): Pr
   });
   const out = (await res.json()) as { ok: boolean; error?: string };
   if (!out.ok) throw new Error(out.error ?? 'failed to start emulator');
+}
+
+// Start sharing: open a public tunnel, view-only or control-enabled. Host-only.
+export async function startSharing(control: boolean): Promise<TunnelInfo> {
+  const k = controlToken();
+  const res = await fetch(`/api/tunnel${k ? `?k=${encodeURIComponent(k)}` : ''}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'start', control }),
+  });
+  const out = (await res.json().catch(() => null)) as {
+    ok?: boolean;
+    error?: string;
+    tunnel?: TunnelInfo;
+  } | null;
+  if (!res.ok || !out?.ok || !out.tunnel) {
+    throw new Error(out?.error ?? `start sharing failed (${res.status})`);
+  }
+  return out.tunnel;
 }
 
 // Stop sharing (close the public tunnel) without killing the server.

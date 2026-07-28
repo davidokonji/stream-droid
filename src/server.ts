@@ -1,36 +1,24 @@
 #!/usr/bin/env bun
-// stream-droid — stream an Android emulator/device to the browser and drive it.
-//
-// The Android analogue of Evan Bacon's serve-sim: instead of a Swift framebuffer
-// helper it leans on `adb` (and, for emulators, a gRPC API). A sidebar lists
-// AVDs and can boot them (optionally headless). See README.md.
-//
-//   bun run src/server.ts                                   # screenrecord, :3200, opens browser
-//   bun run src/server.ts Pixel_9                           # stream (boot) a named emulator
-//   bun run src/server.ts --capture scrcpy --scrcpy-server ./scrcpy-server-v4.1
-//   bun run src/server.ts --headless                        # don't open the browser
-//   bun run src/server.ts -h | -a | -l | --kill | --tunnel  # help / standalone commands
-//
-// Wiring only: config → src/config.ts, adb/device → src/adb.ts, input →
-// src/controllers.ts, HTTP → src/httpServer.ts, WS → src/wsServer.ts, capture
-// selection → src/capture/select.ts, CLI commands → src/commands.ts, startup →
-// src/lifecycle.ts. Requires: bun, `adb` + SDK `emulator` on PATH.
 
 import { createInterface } from 'node:readline';
 import { match } from 'ts-pattern';
 import { config, fail } from './config.ts';
 import { log } from './log.ts';
 import { resolveSerial, targetSerial } from './adb.ts';
-import { listDevices } from './emulator.ts';
+import { killHeadlessBooted, listDevices } from './emulator.ts';
+import { stopTunnel } from './tunnel.ts';
 import { createHttpServer } from './httpServer.ts';
 import { attachWebSocket } from './wsServer.ts';
 import { cmdKill, cmdListStreams, cmdLog, printHelp, requireAdb, startTunnel } from './commands.ts';
 import { bootTargetIfNeeded, ensureAssetsBuilt, openBrowser, preflight } from './lifecycle.ts';
 import { ensureScrcpyJar } from './capture/scrcpyServer.ts';
 
-// On a port clash, ask (on an interactive terminal) whether to fall back to the
-// next free port. Headless runs and non-TTY callers — the skills start the server
-// with -d, plus scripts/CI/pipes — can't answer, so they fall back automatically.
+function cleanupOnExit(): never {
+  stopTunnel();
+  killHeadlessBooted();
+  process.exit(0);
+}
+
 function confirmPortWalk(busy: number, next: number): Promise<boolean> {
   if (config.HEADLESS || !process.stdin.isTTY) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -64,11 +52,6 @@ async function serve(): Promise<void> {
   let portTries = 0;
   let mayWalk = false; // set once the user (or a non-TTY default) approves the fallback
 
-  // If the requested port is taken, don't crash with EADDRINUSE — notify the user
-  // and, with their OK, walk up to the next free port. We ask only on the first
-  // clash, then walk silently to the first free port. The WS server shares this
-  // http server and mirrors its 'error' event, so we attach it only once we've
-  // actually bound — otherwise that mirrored error would crash a retry.
   server.on('error', async (e: NodeJS.ErrnoException) => {
     if (e.code !== 'EADDRINUSE') {
       fail(`could not start the server: ${e.message}`, 'Check the port and permissions, or pass --port <n>.');
@@ -121,6 +104,9 @@ async function serve(): Promise<void> {
     if (config.HEADLESS && !config.TUNNEL) log.info('headless — not opening browser');
     else openBrowser(localUrl);
   });
+
+  process.once('SIGINT', cleanupOnExit);
+  process.once('SIGTERM', cleanupOnExit);
 
   server.listen(startPort, config.HOST);
 }

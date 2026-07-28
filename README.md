@@ -33,10 +33,12 @@ TypeScript on [bun](https://bun.sh); the browser UI is React + Tailwind.
 - **Semantic control** — target UI *elements* by resource-id or text via
   `uiautomator`, no Appium server. Survives layout/resolution changes.
   See [control & semantics](docs/control-and-semantics.md).
-- **Emulator management** — sidebar lists 🟢 running / ⚪ stopped AVDs and boots
-  them, optionally **headless** (no host window, adb/stream only).
-- **Remote sharing** — a public link + terminal QR, **view-only by default** or
-  controllable. See [remote sharing](docs/remote-sharing.md).
+- **Emulator management** — a devices rail of per-device cards lists running /
+  stopped AVDs and boots them, with visible **Headless** / **Cold boot** toggles on
+  each card (no host window = headless; adb/stream only).
+- **Remote sharing** — open a public link + QR straight from the in-app **Share**
+  button (**view-only** or **with control**), or via `--tunnel` /
+  `--tunnel-control`. See [remote sharing](docs/remote-sharing.md).
 - **Instant preview** (poster frame), a **● LIVE** indicator, and a **responsive
   UI** that collapses to a ☰ drawer on mobile.
 - **Agent-ready** — an installable [agent skill](#agent-usage) plus HTTP/WebSocket

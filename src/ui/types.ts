@@ -25,7 +25,13 @@ export interface State {
   devices: DeviceInfo[];
   capture: string;
   target?: string; // preferred device: adb serial or AVD name (from the CLI)
+  host: boolean; // caller is the local operator — device management + sharing are host-only
   tunnel?: TunnelInfo; // present when the server reports share status
+}
+
+export interface BootOpts {
+  headless?: boolean;
+  cold?: boolean;
 }
 
 export type Codec = 'h264' | 'png';

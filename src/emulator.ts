@@ -6,9 +6,7 @@ export interface AvdStatus {
   name: string; // AVD name, e.g. "Pixel_9"
   running: boolean;
   serial: string | null; // adb serial when running, e.g. "emulator-5554"
-  headless: boolean; // running windowless (-no-window) — its "close" fully kills it
-  // Emulator (bootable/killable here) vs a physical device (adb-attached, can't be
-  // `emu kill`ed — the UI offers no shutdown for it). Stopped AVDs are emulators.
+  headless: boolean;
   emulator: boolean;
   booted: boolean | null;
   bootError: string | null;
@@ -269,4 +267,24 @@ export function startEmulator(
 
 export function killEmulator(serial: string): void {
   execFileSync('adb', ['-s', serial, 'emu', 'kill']);
+}
+
+export function killHeadlessBooted(): void {
+  if (bootedHeadless.size === 0) return;
+  let running: DeviceInfo[];
+  try {
+    running = listDevices();
+  } catch {
+    return;
+  }
+  for (const { serial, avd } of running) {
+    const name = avd.replace(/\s+\(\w{4}\)$/, ''); // strip the duplicate-model suffix
+    if (serial.startsWith('emulator-') && bootedHeadless.has(name)) {
+      try {
+        killEmulator(serial);
+      } catch {
+        /* best-effort cleanup on the way out */
+      }
+    }
+  }
 }
