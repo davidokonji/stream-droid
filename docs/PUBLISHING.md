@@ -196,11 +196,11 @@ Four GitHub Actions workflows are in `.github/workflows/`:
 
 - **`ci.yml`** — on every push/PR to `main`: `bun install`, then lint (oxlint),
   format check (oxfmt), typecheck (tsc), and build. This is the green-check gate.
-- **`publish-beta.yml`** — on a push/merge to `main` that touches package files
-  (`package.json`, `bun.lock`, `src/**`, `public/**`, `skills/**`): runs the
-  checks, publishes a **beta** to npm as `<version>-beta.<run_number>` under the
-  `beta` dist-tag (never `latest`), then tags that commit and cuts a **GitHub
-  prerelease** `v<version>-beta.<run_number>`.
+- **`publish-beta.yml`** — **opt-in**. Runs only when a commit on `main` includes
+  **`[beta]`** in its message, or when the workflow is dispatched manually — a
+  plain merge cuts no beta. It runs the checks, publishes a **beta** to npm as
+  `<version>-beta.<run_number>` under the `beta` dist-tag (never `latest`), then
+  tags that commit and cuts a **GitHub prerelease** `v<version>-beta.<run_number>`.
 - **`publish-stable.yml`** — **manual** (`workflow_dispatch`) from the Actions
   tab. Pick a **release type** (`patch` / `minor` / `major`); the workflow bumps
   `package.json`, commits + tags it, pushes to `main`, publishes to the default
@@ -220,12 +220,24 @@ Both need `contents: write` + `id-token: write`:
 - **beta** — `contents: write` to create the prerelease + tag; `id-token: write`
   for provenance. It does **not** commit the bump to `main` (in-place
   `npm version --no-git-tag-version`; the tag points at the built commit), and it
-  skips any commit whose message contains **`[skip beta]`**.
+  runs **only** for commits whose message contains **`[beta]`** (or a manual
+  dispatch).
 - **stable** — `contents: write` to push the version-bump commit/tag and create
   the release; `id-token: write` for provenance.
 
 > Beta tags are created via `GITHUB_TOKEN`, so they don't re-trigger
 > `publish-stable` (and a `-beta.N` tag wouldn't match its version guard anyway).
+
+### Cutting a beta
+
+Betas are **opt-in** — a plain merge publishes nothing. To cut one, either:
+
+- put **`[beta]`** in the commit message you land on `main` (e.g. a squash-merge
+  titled `Fix streaming stall [beta]`), **or**
+- Actions tab → **Publish beta** → *Run workflow* (manual dispatch).
+
+Either publishes `<version>-beta.<run_number>` under the `beta` dist-tag and cuts a
+GitHub prerelease. Install with `bunx stream-droid@beta`.
 
 ### Cutting a stable release
 
@@ -236,7 +248,7 @@ Actions tab → **Publish stable** → *Run workflow* → choose `patch` / `mino
 2. `npm version <type>` bumps `package.json`, then `version:release` advances the
    published plugin version (manifests + skills) to match; commits + tags the lot;
 3. pushes the commit and tag (via `GITHUB_TOKEN`, which doesn't trigger other
-   workflows, so no beta is cut — the `[skip beta]` message is a backstop);
+   workflows — and the release commit carries no `[beta]`, so no beta is cut);
 4. `npm publish --provenance` → **`latest`**;
 5. `gh release create v<version> --generate-notes` → a **GitHub release**.
 
