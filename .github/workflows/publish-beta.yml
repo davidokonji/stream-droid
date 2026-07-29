@@ -1,24 +1,13 @@
 name: Publish beta
 
-# Publish a beta build to npm (dist-tag `beta`, never `latest`) whenever main
-# advances — a merged PR or a direct push — and the change touches files that
-# ship in the package. Consumers opt in with `bunx stream-droid@beta`.
-#
-# Tests aren't shipped in the package, so a test-only change must NOT cut a beta.
-# The `!src/**/*.test.ts` / `__tests__` negations exclude them: a push touching
-# only tests won't match; a push touching real src still does.
+# Publish a beta build to npm (dist-tag `beta`, never `latest`) — but only when a
+# commit on main explicitly opts in with `[beta]` in its message, or when this
+# workflow is dispatched manually. Betas are opt-in: not every merge needs one, so
+# a plain merge publishes nothing. Consumers install with `bunx stream-droid@beta`.
 on:
   push:
     branches: [main]
-    paths:
-      - 'package.json'
-      - 'bun.lock'
-      - 'src/**'
-      - '!src/**/*.test.ts'
-      - '!src/**/*.test.tsx'
-      - '!src/**/__tests__/**'
-      - 'public/**'
-      - 'skills/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,10 +21,11 @@ concurrency:
 jobs:
   publish-beta:
     name: Publish beta to npm
-    # Guards: only ever publish from this repo (not forks), and skip when the
-    # commit opts out with [skip beta] — e.g. the version-bump commit of a stable
-    # release, which is published by publish-stable.yml instead.
-    if: ${{ github.repository == 'davidokonji/stream-droid' && !contains(github.event.head_commit.message, '[skip beta]') }}
+    # Guards: only ever publish from this repo (not forks), and only when the
+    # commit opts in with [beta] (or the workflow is dispatched manually). A plain
+    # merge cuts no beta; a stable release's version-bump commit won't carry [beta]
+    # either, so it's published by publish-stable.yml alone.
+    if: ${{ github.repository == 'davidokonji/stream-droid' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[beta]')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

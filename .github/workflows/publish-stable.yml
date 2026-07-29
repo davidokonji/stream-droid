@@ -76,13 +76,11 @@ jobs:
         run: |
           NEW=$(npm version ${{ inputs.release_type }} --no-git-tag-version)
           bun run version:release
-          git commit -am "release: ${NEW} [skip beta]"
-          git tag -a "${NEW}" -m "release: ${NEW} [skip beta]"
+          git commit -am "release: ${NEW}"
+          git tag -a "${NEW}" -m "release: ${NEW}"
           echo "version=${NEW#v}" >> "$GITHUB_OUTPUT"
           echo "Releasing stream-droid@${NEW#v} (${{ inputs.release_type }} → dist-tag: latest)"
 
-      # Pushes made with GITHUB_TOKEN don't trigger other workflows, so this
-      # bump commit won't kick off publish-beta (the [skip beta] tag is a backstop).
       - name: Push commit & tag
         run: git push --follow-tags
 
