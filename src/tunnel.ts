@@ -113,11 +113,13 @@ async function waitReachable(url: string): Promise<void> {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- deliberate: probe sequentially until reachable
       const res = await fetch(url, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(4000) });
       if (res.status < 500) return; // our server answered → the edge is routing
     } catch {
       /* DNS/connect not ready yet — retry */
     }
+    // eslint-disable-next-line no-await-in-loop -- deliberate: wait between probes
     await new Promise((r) => setTimeout(r, 1200));
   }
 }
