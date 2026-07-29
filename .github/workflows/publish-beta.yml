@@ -1,16 +1,8 @@
 name: Publish beta
 
-# Publish a beta build to npm (dist-tag `beta`, never `latest`) — opt-in. It runs
-# only for a push that changes shipped files AND whose commit message contains
-# `[beta]` (or a manual dispatch); a plain merge, or a docs/CI/config-only change,
-# publishes nothing. The paths filter keeps unrelated pushes — including commits
-# that merely mention `[beta]` in prose — from triggering it at all. Consumers
-# install with `bunx stream-droid@beta`.
 on:
   push:
     branches: [main]
-    # Only pushes touching what actually ships (tests don't ship). The [beta]
-    # guard on the job below still decides whether to publish.
     paths:
       - 'package.json'
       - 'bun.lock'
