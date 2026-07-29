@@ -9,10 +9,10 @@ tap, swipe, type, hardware keys — for humans and AI agents.**
 [![docs](https://img.shields.io/badge/docs-online-blue)](https://davidokonji.github.io/stream-droid/)
 [![agents](https://img.shields.io/badge/agent%20skill-install-8A2BE2)](#install-the-skill)
 
-![stream-droid — one command opens a live Android device in your browser; tap/swipe/type or let an agent drive; boot headless, share a link, works with emulators and real phones](docs/demo.gif)
+![stream-droid — one command opens a live Android device in your browser; a console with an app bar, per-device cards and a device stage; drive it by hand or by agent; share a link that's view-only by default](docs/demo.gif)
 
 Point stream-droid at a running emulator or phone and it serves a live view of
-the screen in the browser that you can click, drag, and type into. A sidebar
+the screen in the browser that you can click, drag, and type into. A device rail
 lists and boots AVDs (optionally headless), and everything is scriptable over a
 small HTTP/WebSocket API — so an AI agent can *see* and *act on* an Android app
 the same way a person does.
