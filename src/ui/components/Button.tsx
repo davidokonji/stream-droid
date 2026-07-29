@@ -2,9 +2,9 @@ import type { ButtonHTMLAttributes } from 'react';
 import { tv } from 'tailwind-variants';
 
 const button = tv({
-  base: 'rounded-lg border border-[#2c333d] bg-[#1b2027] px-2.5 py-1 text-neutral-200 cursor-pointer hover:enabled:bg-[#232a33]',
+  base: 'control inline-flex min-h-9 items-center justify-center rounded-lg px-3 py-1.5 text-neutral-100 cursor-pointer',
   variants: {
-    disabled: { true: 'cursor-not-allowed opacity-50' },
+    disabled: { true: 'cursor-not-allowed opacity-45' },
   },
 });
 

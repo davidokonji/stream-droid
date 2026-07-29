@@ -15,3 +15,6 @@ docs/thoughts/
 
 # /brag generated launch videos
 brag-output*
+
+.DS_Store
+
