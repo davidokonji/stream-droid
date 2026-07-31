@@ -11,7 +11,7 @@ const screen = tv({
   slots: {
     frame:
       'relative flex touch-none items-center justify-center rounded-[26px] bg-[#0a0a0d] p-2.5 outline-none ring-1 ring-white/[0.12] shadow-[0_40px_110px_-34px_rgb(0_0_0_/_0.9)] focus-visible:ring-[var(--accent)]',
-    surface: 'block max-h-[80vh] max-w-full rounded-[18px] bg-black object-contain cursor-crosshair',
+    surface: 'block max-h-[80vh] max-w-full rounded-[18px] bg-black object-contain cursor-pointer',
     badge:
       'pill pointer-events-none absolute bottom-3 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
     kbd: 'pill pointer-events-none absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide text-[var(--accent-soft)]',

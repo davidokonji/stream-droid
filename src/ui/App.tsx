@@ -29,8 +29,21 @@ const layout = tv({
 const BOOT_GIVE_UP_MS = 120_000;
 
 export function App() {
-  const { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, disconnect, send } =
-    useDeviceStream();
+  const {
+    videoRef,
+    canvasRef,
+    codec,
+    status,
+    state,
+    serial,
+    live,
+    controllable,
+    connect,
+    disconnect,
+    send,
+    canCopy,
+    readDeviceClipboard,
+  } = useDeviceStream();
   const [avds, setAvds] = useState<AvdStatus[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booting, setBooting] = useState<Set<string>>(new Set());
@@ -48,7 +61,7 @@ export function App() {
   const [notice, setNotice] = useState<NoticeData | null>(null);
   const [tunnel, setTunnel] = useState<TunnelInfo | null>(null);
 
-  useKeyboard(send, controllable && stageFocused);
+  useKeyboard(send, controllable && stageFocused, canCopy, readDeviceClipboard);
 
   const dismissCoach = (): void => setCoach(false);
 

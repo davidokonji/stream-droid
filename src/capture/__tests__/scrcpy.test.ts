@@ -15,7 +15,7 @@ const VIDEO_CHUNK = Buffer.from([0, 0, 0, 1, 0x67]); // an H.264-looking NAL
 // `failFirst` connections (the adb-forward accept race) or every connection
 // (`destroyAll`); otherwise serves the first survivor as the video socket (sends
 // a chunk) and keeps later sockets (control) open.
-function fakeForward(opts: { failFirst?: number; destroyAll?: boolean } = {}): {
+function fakeForward(opts: { failFirst?: number; destroyAll?: boolean; controlSend?: Buffer } = {}): {
   server: net.Server;
   connections: () => number;
 } {
@@ -34,9 +34,8 @@ function fakeForward(opts: { failFirst?: number; destroyAll?: boolean } = {}): {
       sock.write(VIDEO_CHUNK);
       return;
     }
-    sock.on('data', () => {
-      /* control socket — drain */
-    });
+    if (opts.controlSend) sock.write(opts.controlSend);
+    sock.on('data', () => {});
   });
   return { server, connections: () => count };
 }
@@ -174,5 +173,33 @@ describe('startScrcpy state machine', () => {
     expect(err!.message).toMatch(/video socket never established/);
     expect(sp.killed()).toBe(true);
     expect(execCalls.some((a) => a[0] === 'forward' && a[1] === '--remove')).toBe(true);
+  });
+
+  test('a device CLIPBOARD message on the control socket reaches a subscriber', async () => {
+    const text = 'copied on device';
+    const utf8 = Buffer.from(text, 'utf8');
+    const msg = Buffer.alloc(5 + utf8.length);
+    msg.writeUInt8(0, 0); // DEVICE_MSG_TYPE_CLIPBOARD
+    msg.writeUInt32BE(utf8.length, 1);
+    utf8.copy(msg, 5);
+
+    const fwd = fakeForward({ controlSend: msg });
+    srv = fwd.server;
+    const port = await listen(srv);
+
+    const sp = fakeServerProc();
+    const deps: ScrcpyDeps = { execAdb: async () => {}, spawnAdb: () => sp.proc, maxAttempts: 20 };
+
+    const got: string[] = [];
+    handle = startScrcpy(
+      { adbArgs: idArgs, serverJar: '/x/scrcpy-server', port, control: true, onChunk: () => {} },
+      deps,
+    );
+    // Safe to subscribe synchronously: the control socket can't connect until the
+    // awaited push/forward resolves, which is at least a microtask away.
+    handle.subscribeClipboard!((t) => got.push(t));
+
+    expect(await waitFor(() => got.length > 0)).toBe(true);
+    expect(got).toEqual([text]);
   });
 });

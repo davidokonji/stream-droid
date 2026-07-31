@@ -40,8 +40,17 @@ export type Codec = 'h264' | 'png';
 export type ConnState = 'idle' | 'connecting' | 'live' | 'disconnected' | 'error';
 
 export type ServerMsg =
-  | { type: 'meta'; name?: string; w: number; h: number; codec?: Codec; control?: boolean }
+  | {
+      type: 'meta';
+      name?: string;
+      w: number;
+      h: number;
+      codec?: Codec;
+      control?: boolean;
+      clipboard?: boolean;
+    }
   | { type: 'poster' } // next binary frame is a one-shot PNG preview (canvas)
+  | { type: 'clipboard'; value: string } // the device's clipboard changed
   | { type: 'error'; message: string };
 
 export type Control =
@@ -50,4 +59,6 @@ export type Control =
   | { type: 'longPress'; x: number; y: number; ms?: number }
   | { type: 'scroll'; x: number; y: number; dx: number; dy: number }
   | { type: 'text'; value: string }
-  | { type: 'key'; key: string };
+  | { type: 'key'; key: string }
+  | { type: 'paste'; value: string }
+  | { type: 'copy' };

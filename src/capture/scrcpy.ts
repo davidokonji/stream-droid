@@ -32,6 +32,7 @@ import { promisify } from 'node:util';
 import { config } from '../config.ts';
 import { logger } from '../log.ts';
 import { VERSION } from './scrcpyServer.ts';
+import { deviceMsgParser } from './scrcpyDeviceMsg.ts';
 import type { CaptureHandle, ScrcpyOptions } from './types.ts';
 
 const log = logger('scrcpy');
@@ -84,6 +85,7 @@ export function startScrcpy(
   let established = false; // video socket accepted by the server
   let streaming = false; // first video bytes seen (for logging)
   let ctrlReady = false; // control socket connected & writable
+  let onClipboardText: ((text: string) => void) | null = null;
   let pendingRetry = false;
   let ctrlAttempts = 0;
   let grace: ReturnType<typeof setTimeout> | null = null;
@@ -127,9 +129,13 @@ export function startScrcpy(
       ctrlAttempts = 0;
       log.debug(`control socket up on :${port}`);
     });
-    s.on('data', () => {
-      /* drain device→client messages (clipboard, acks) */
-    });
+    // Device → client messages (clipboard pushes, acks). A fresh parser per
+    // socket: a retry must not inherit half a message from the dead one.
+    const devMsgs = deviceMsgParser(
+      (t) => onClipboardText?.(t),
+      (reason) => log.debug(`device message stream desynced: ${reason}`),
+    );
+    s.on('data', (d: Buffer) => devMsgs.push(d));
     const retryControl = (): void => {
       ctrlReady = false;
       if (!alive || stopped) return;
@@ -232,6 +238,9 @@ export function startScrcpy(
         `video_bit_rate=${bitRate}`,
         `max_size=${maxSize}`,
         'raw_stream=true',
+        // Default is already true, but the clipboard feature depends on it —
+        // state it rather than inherit it silently.
+        'clipboard_autosync=true',
       ),
     );
     // scrcpy-server's own logs — only surface them in verbose mode.
@@ -256,6 +265,13 @@ export function startScrcpy(
         }
       : undefined,
     controlReady: control ? () => ctrlReady : undefined,
+    // Device clipboard pushes. One client per device, so a later subscribe
+    // replaces the earlier one rather than fanning out.
+    subscribeClipboard: control
+      ? (cb: (text: string) => void) => {
+          onClipboardText = cb;
+        }
+      : undefined,
     stop: teardown,
   };
 }

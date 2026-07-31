@@ -156,6 +156,16 @@ version** (`SKILL.md` + `.claude-plugin/*.json`) advances only on a stable relea
   loopback). `--host 0.0.0.0` opts into LAN exposure. `config.isRemote(req)` =
   came over the relay (forwarding header) or a non-loopback address;
   `config.canControl(req)` = local operator **or** control token.
+- **Link-preview QR (`og:image`).** While a tunnel is open, `serveStatic` injects
+  Open Graph tags into `index.html` (absolute URLs, so they can't be baked into the
+  static file) pointing at `/og-qr.png` — the same QR as the share panel, as a PNG
+  because unfurlers don't render SVG. **That route is deliberately unauthenticated**:
+  the unfurler fetching it is an anonymous third party, so `ogQr()` is not host-gated
+  the way `tunnelInfo`'s `qr` is. Consequence, accepted by choice so the preview
+  always matches the link that was shared: in **control mode** the QR encodes
+  `?k=<token>`, so any caller who can reach the tunnel — including a view-only
+  viewer — can fetch that image and scan the token out of it, and the preview
+  service caches a copy. With no tunnel open the route 404s and no tags are added.
 - **Tunnel security.** Sharing is **view-only** by default; control is gated
   by a random token (`config.CONTROL_TOKEN`). Local browser gets `?k=<token>`;
   the shared link carries it only in control mode. **Two permission tiers for a
@@ -189,11 +199,20 @@ version** (`SKILL.md` + `.claude-plugin/*.json`) advances only on a stable relea
 - **Serial vs AVD name.** `--serial`/positional accept either; `resolveSerial`
   and `targetSerial` map by adb serial **or** AVD name (case-insensitive).
 - **Headless cleanup on exit.** Emulators this server booted headless are tracked
-  in `emulator.ts`'s `bootedHeadless`; `killHeadlessBooted()` `emu kill`s the online
-  ones and is wired into `/api/shutdown` and `SIGINT`/`SIGTERM` (`server.ts`
-  `cleanupOnExit`). Windowed emulators are left running — the user can see them.
-  So closing the server doesn't strand windowless devices. The UI defaults new
-  boots to headless unless a windowed emulator is already running.
+  in `emulator.ts`'s `bootedHeadless`, and closing the server shouldn't strand
+  windowless devices. But that record is keyed by AVD **name** and records intent
+  at boot time, so it goes stale — the AVD can be killed and cold-booted *windowed*
+  later while its name stays in the set. So the record only picks the candidates
+  (anything we never booted is never a candidate); live `ps` state decides.
+  `shutdownCandidates()` splits them into `headless` (verified still windowless →
+  closed silently) and `windowed` (on screen now → must be confirmed), and prunes
+  names that stopped running. Where `ps` is unavailable (Windows) it can't verify,
+  so it trusts the record as before. `SIGINT`/`SIGTERM` (`server.ts` `cleanupOnExit`)
+  **prompts** before closing a windowed one and defaults to leaving it — a second
+  Ctrl-C exits immediately, and with no TTY it never closes them. `/api/shutdown`
+  closes only the verified-windowless ones; there's no way to ask over HTTP.
+  Emulators the server never booted are never touched either way. The UI defaults
+  new boots to headless unless a windowed emulator is already running.
 
 ## How to extend
 

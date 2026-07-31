@@ -12,9 +12,11 @@ export interface DeviceStream {
   serial: string | null;
   live: boolean; // frames are flowing
   controllable: boolean; // this session may drive the device (false = view-only)
+  canCopy: boolean; // the backend can read the device clipboard (scrcpy only)
   connect: (serial: string) => void;
   disconnect: () => void; // tear down the current stream (e.g. its device went away)
   send: (msg: Control) => void;
+  readDeviceClipboard: () => string; // latest device clipboard, '' if none yet
 }
 
 export function useDeviceStream(): DeviceStream {
@@ -27,6 +29,7 @@ export function useDeviceStream(): DeviceStream {
   const liveRef = useRef(false);
   const posterRef = useRef(false); // next binary frame is the one-shot PNG poster
   const posterUrlRef = useRef<string | null>(null);
+  const clipboardRef = useRef('');
 
   const [codec, setCodec] = useState<Codec>('h264');
   const [status, setStatus] = useState('select an emulator →');
@@ -34,6 +37,7 @@ export function useDeviceStream(): DeviceStream {
   const [serial, setSerial] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [controllable, setControllable] = useState(true);
+  const [canCopy, setCanCopy] = useState(false);
 
   // Decode PNG frames, keeping only the newest frame if decode falls behind.
   const decoding = useRef(false);
@@ -106,6 +110,8 @@ export function useDeviceStream(): DeviceStream {
       setSerial(s);
       setLive(false);
       setControllable(true);
+      clipboardRef.current = '';
+      setCanCopy(false);
       setState('connecting');
       setStatus(`connecting to ${s}…`);
 
@@ -139,6 +145,7 @@ export function useDeviceStream(): DeviceStream {
           codecRef.current = c;
           setCodec(c);
           setControllable(msg.control !== false);
+          setCanCopy(msg.clipboard === true);
           if (c === 'h264' && !muxRef.current && videoRef.current) {
             muxRef.current = new JMuxer({
               node: videoRef.current,
@@ -151,6 +158,8 @@ export function useDeviceStream(): DeviceStream {
           setStatus(`${msg.name} · ${msg.w}×${msg.h} · ${c}`);
         } else if (msg.type === 'poster') {
           posterRef.current = true;
+        } else if (msg.type === 'clipboard') {
+          if (serialRef.current === s) clipboardRef.current = msg.value;
         } else if (msg.type === 'error') {
           setState('error');
           setStatus(msg.message);
@@ -160,6 +169,8 @@ export function useDeviceStream(): DeviceStream {
         if (serialRef.current === s) {
           liveRef.current = false;
           setLive(false);
+          clipboardRef.current = '';
+          setCanCopy(false);
           setState((prev) => (prev === 'error' ? prev : 'disconnected'));
           setStatus('device disconnected');
         }
@@ -179,6 +190,8 @@ export function useDeviceStream(): DeviceStream {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
+  const readDeviceClipboard = useCallback((): string => clipboardRef.current, []);
+
   useEffect(
     () => () => {
       wsRef.current?.close();
@@ -188,5 +201,19 @@ export function useDeviceStream(): DeviceStream {
     [],
   );
 
-  return { videoRef, canvasRef, codec, status, state, serial, live, controllable, connect, disconnect, send };
+  return {
+    videoRef,
+    canvasRef,
+    codec,
+    status,
+    state,
+    serial,
+    live,
+    controllable,
+    canCopy,
+    connect,
+    disconnect,
+    send,
+    readDeviceClipboard,
+  };
 }
