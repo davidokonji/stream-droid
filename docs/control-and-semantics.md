@@ -29,6 +29,21 @@ header).
 **Typing caveat.** `adb input text` escapes spaces as `%s` and is fussy with
 punctuation; swap in an ADB IME (e.g. ADBKeyBoard) for reliable full-text entry.
 
+**Clipboard (paste & copy).** The browser supports `⌘/Ctrl+V` to paste and
+`⌘/Ctrl+C` to copy the device's clipboard:
+- **paste** works on all three backends: scrcpy's `SET_CLIPBOARD` (populates the
+  device clipboard for on-device reuse, handles multiline/non-ASCII); gRPC's text
+  RPC (unicode-safe, no device clipboard); adb `input text` split on newlines with
+  `KEYCODE_ENTER` (inherits `adb input text` punctuation quirks).
+- **copy** is **scrcpy-only**; there is no reliable way to read the clipboard over
+  plain `adb`, and the bundled gRPC proto has no clipboard RPC. On the default
+  `screenrecord` backend, `⌘C` behaves normally (no clipboard copy). The copy
+  request uses scrcpy's `COPY_KEY_COPY` default, which also injects
+  `KEYCODE_COPY` into the device first — so a host-side `⌘C` copies a live
+  on-device text selection into the device clipboard (and then reads it back),
+  mutating the device clipboard as a side effect even if the client already had
+  a cached value.
+
 ## Semantic control (elements, not pixels)
 
 All three backends are pixel-based; for agents that need to target UI *elements*
@@ -46,6 +61,14 @@ emulators and physical devices (`src/semantic.ts`).
 This is robust against resolution/layout changes where fixed coordinates would
 break. For richer driver semantics (smart waits, complex gestures, cross-platform
 scripts), [Appium](https://appium.io/) / UiAutomator2 remains the heavier option.
+
+## Clipboard notifications (server → client)
+
+The server sends these WebSocket messages to keep the client's clipboard cache
+current:
+
+- **`{ "type": "meta", "clipboard": boolean, … }`** — advertises whether copy can work on the current backend. Sent on connect.
+- **`{ "type": "clipboard", "value": "…" }`** — pushed whenever the device clipboard changes (scrcpy's `clipboard_autosync`). **Sent only to control-authorized clients** — a view-only viewer over a shared tunnel never receives the device clipboard, as it may contain sensitive data (passwords, etc.).
 
 ## Programmatic API
 

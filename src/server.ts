@@ -5,7 +5,7 @@ import { match } from 'ts-pattern';
 import { config, fail } from './config.ts';
 import { log } from './log.ts';
 import { resolveSerial, targetSerial } from './adb.ts';
-import { killHeadlessBooted, listDevices } from './emulator.ts';
+import { killEmulators, listDevices, shutdownCandidates } from './emulator.ts';
 import { stopTunnel } from './tunnel.ts';
 import { createHttpServer } from './httpServer.ts';
 import { attachWebSocket } from './wsServer.ts';
@@ -13,10 +13,31 @@ import { cmdKill, cmdListStreams, cmdLog, printHelp, requireAdb, startTunnel } f
 import { bootTargetIfNeeded, ensureAssetsBuilt, openBrowser, preflight } from './lifecycle.ts';
 import { ensureScrcpyJar } from './capture/scrcpyServer.ts';
 
-function cleanupOnExit(): never {
+async function cleanupOnExit(): Promise<never> {
   stopTunnel();
-  killHeadlessBooted();
+  const { headless, windowed } = shutdownCandidates();
+  killEmulators(headless);
+
+  if (windowed.length) {
+    const names = windowed.map((d) => d.avd).join(', ');
+    if (await confirmCloseWindowed(names)) killEmulators(windowed);
+    else log.info(`leaving ${names} running`);
+  }
   process.exit(0);
+}
+
+function confirmCloseWindowed(names: string): Promise<boolean> {
+  if (config.HEADLESS || !process.stdin.isTTY) {
+    log.info(`leaving ${names} running — no terminal to confirm on`);
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`\n[stream-droid] close the open emulator ${names}? [y/N] `, (ans) => {
+      rl.close();
+      resolve(/^\s*y/i.test(ans)); // empty / anything but "y…" = leave it running
+    });
+  });
 }
 
 function confirmPortWalk(busy: number, next: number): Promise<boolean> {

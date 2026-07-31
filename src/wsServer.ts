@@ -42,21 +42,26 @@ async function awaitDeviceSize(ws: WebSocket, serial: string): Promise<CaptureMe
 
 // A one-line summary of a control message for debug logs.
 function summarize(msg: Incoming): string {
-  return match(msg)
-    .with({ type: 'tap' }, (m) => `tap ${m.x.toFixed(2)},${m.y.toFixed(2)}`)
-    .with(
-      { type: 'swipe' },
-      (m) => `swipe ${m.x1.toFixed(2)},${m.y1.toFixed(2)} → ${m.x2.toFixed(2)},${m.y2.toFixed(2)}`,
-    )
-    .with({ type: 'longPress' }, (m) => `longPress ${m.x.toFixed(2)},${m.y.toFixed(2)}`)
-    .with(
-      { type: 'scroll' },
-      (m) => `scroll ${m.x.toFixed(2)},${m.y.toFixed(2)} Δ${m.dx.toFixed(2)},${m.dy.toFixed(2)}`,
-    )
-    .with({ type: 'text' }, (m) => `text ${JSON.stringify(m.value)}`)
-    .with({ type: 'key' }, (m) => `key ${m.key}`)
-    .with({ type: 'tapElement' }, (m) => `tapElement ${m.id ? `#${m.id}` : JSON.stringify(m.text)}`)
-    .exhaustive();
+  return (
+    match(msg)
+      .with({ type: 'tap' }, (m) => `tap ${m.x.toFixed(2)},${m.y.toFixed(2)}`)
+      .with(
+        { type: 'swipe' },
+        (m) => `swipe ${m.x1.toFixed(2)},${m.y1.toFixed(2)} → ${m.x2.toFixed(2)},${m.y2.toFixed(2)}`,
+      )
+      .with({ type: 'longPress' }, (m) => `longPress ${m.x.toFixed(2)},${m.y.toFixed(2)}`)
+      .with(
+        { type: 'scroll' },
+        (m) => `scroll ${m.x.toFixed(2)},${m.y.toFixed(2)} Δ${m.dx.toFixed(2)},${m.dy.toFixed(2)}`,
+      )
+      .with({ type: 'text' }, (m) => `text ${JSON.stringify(m.value)}`)
+      .with({ type: 'key' }, (m) => `key ${m.key}`)
+      .with({ type: 'tapElement' }, (m) => `tapElement ${m.id ? `#${m.id}` : JSON.stringify(m.text)}`)
+      // Length only — clipboard contents are user data and may be a password.
+      .with({ type: 'paste' }, (m) => `paste ${m.value.length} chars`)
+      .with({ type: 'copy' }, () => 'copy')
+      .exhaustive()
+  );
 }
 
 export function attachWebSocket(server: http.Server): void {
@@ -83,7 +88,20 @@ export function attachWebSocket(server: http.Server): void {
     log.info(
       `${addr} → ${serial} · ${config.CAPTURE} · ${size.w}×${size.h}${authorized ? '' : ' · view-only'}`,
     );
-    ws.send(JSON.stringify({ type: 'meta', ...size, codec: config.CODEC, control: authorized }));
+    // Device → host copy needs scrcpy's control socket; paste works on every
+    // backend. Told to the client so it only intercepts ⌘C when copy can work,
+    // instead of swallowing the browser's own copy for nothing. Derived from
+    // config because `meta` goes out before the capture handle exists.
+    const canCopy = config.CAPTURE === 'scrcpy' && config.SCRCPY_CONTROL;
+    ws.send(
+      JSON.stringify({
+        type: 'meta',
+        ...size,
+        codec: config.CODEC,
+        control: authorized,
+        clipboard: canCopy,
+      }),
+    );
 
     const adbArgs = adbFor(serial);
 
@@ -120,6 +138,20 @@ export function attachWebSocket(server: http.Server): void {
 
     const { control, via } = pickController(capture, size, adbArgs);
     if (authorized) log.info(`${serial}: input via ${via}`);
+
+    // scrcpy's clipboard_autosync pushes the device clipboard whenever it changes
+    // on-device — i.e. exactly when the user taps "Copy". The client caches it so
+    // ⌘C can write synchronously inside the browser's gesture.
+    //
+    // Authorized clients only: a view-only viewer over the tunnel watches the
+    // screen, and must never be handed the device's clipboard.
+    if (authorized) {
+      capture.subscribeClipboard?.((value) => {
+        if (ws.readyState !== ws.OPEN) return;
+        log.debug(`${serial} ▸ clipboard ${value.length} chars`);
+        ws.send(JSON.stringify({ type: 'clipboard', value }));
+      });
+    }
 
     ws.on('message', async (data: Buffer, isBinary: boolean) => {
       if (isBinary || !authorized) return; // view-only sessions can watch but not drive

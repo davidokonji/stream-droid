@@ -137,6 +137,15 @@ are normalized so taps stay correct across resolutions and rotation.
 → Architecture, the capture/render pipeline, and design notes (instant-preview
 poster, headless boot, one-pipe-per-client): **[docs/architecture.md](docs/architecture.md)**.
 
+## Browser keyboard shortcuts
+
+- **`⌘V` / `Ctrl+V`** over the device — pastes your clipboard into the focused field on the device.
+- **`⌘C` / `Ctrl+C`** over the device — copies the device's clipboard to your computer. **Requires `--capture scrcpy` with control enabled** (the default; disabled by `--scrcpy-control off`); on the default `screenrecord` backend, or with scrcpy control off, there is no way to read the Android clipboard, so `⌘C` behaves normally. If the device clipboard was already set before you connected, the first `⌘C` only requests it — the value is available from the next press.
+
+> **Note:** keyboard shortcuts require a physical keyboard. A remote viewer handed
+> a shared link + QR on a mobile device cannot use the clipboard — clipboard
+> support is desktop-only.
+
 ## Agent usage
 
 The `stream-droid` plugin ships four focused agent skills so an AI agent can work

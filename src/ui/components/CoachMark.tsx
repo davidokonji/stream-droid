@@ -16,6 +16,8 @@ const MOVES: ReadonlyArray<[string, string]> = [
   ['Hold', 'long-press'],
   ['Scroll', 'scroll'],
   ['Type', 'keys (focus the device first)'],
+  ['⌘V / Ctrl+V', 'paste into the focused field'],
+  ['⌘C / Ctrl+C', "copy the device's clipboard"],
 ];
 
 export function CoachMark({ onDismiss }: { onDismiss: () => void }) {

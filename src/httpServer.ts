@@ -17,7 +17,7 @@ import {
 } from './emulator.ts';
 import { dumpHierarchy } from './semantic.ts';
 import { foregroundApp, launchApp, listPackages } from './apps.ts';
-import { openTunnel, stopTunnel, tunnelInfo } from './tunnel.ts';
+import { ogQr, openTunnel, stopTunnel, tunnelInfo } from './tunnel.ts';
 
 const STATIC: Record<string, string> = {
   '/': 'text/html; charset=utf-8',
@@ -38,6 +38,33 @@ const json = (res: http.ServerResponse, code: number, body: unknown): void => {
   res.end(JSON.stringify(body));
 };
 
+const OG_QR_PATH = '/og-qr.png';
+
+const escapeAttr = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Open Graph tags so the shared link unfurls with the QR as its preview image.
+// Injected at serve time rather than baked into index.html because og:image and
+// og:url must be absolute, and the public URL only exists once a tunnel is open.
+// With no tunnel there is nothing to preview, so nothing is added.
+function ogTags(): string {
+  const og = ogQr();
+  if (!og) return '';
+  const image = escapeAttr(`${og.baseUrl}${OG_QR_PATH}`);
+  const url = escapeAttr(og.baseUrl);
+  return (
+    `<meta property="og:title" content="stream-droid — live Android device" />` +
+    `<meta property="og:description" content="Scan the QR to open this device on your phone." />` +
+    `<meta property="og:type" content="website" />` +
+    `<meta property="og:url" content="${url}" />` +
+    `<meta property="og:image" content="${image}" />` +
+    `<meta property="og:image:width" content="600" />` +
+    `<meta property="og:image:height" content="600" />` +
+    `<meta name="twitter:card" content="summary_large_image" />` +
+    `<meta name="twitter:image" content="${image}" />`
+  );
+}
+
 function serveStatic(res: http.ServerResponse, path: string): void {
   const file = path === '/' ? '/index.html' : path;
   const contentType = STATIC[file];
@@ -46,8 +73,17 @@ function serveStatic(res: http.ServerResponse, path: string): void {
     return;
   }
   try {
+    const body = readFileSync(join(config.PUBLIC, file));
+    if (file === '/index.html') {
+      const tags = ogTags();
+      if (tags) {
+        res.writeHead(200, { 'content-type': contentType, 'cache-control': 'no-store' });
+        res.end(body.toString('utf8').replace('</head>', `${tags}</head>`));
+        return;
+      }
+    }
     res.writeHead(200, { 'content-type': contentType, 'cache-control': 'no-store' });
-    res.end(readFileSync(join(config.PUBLIC, file)));
+    res.end(body);
   } catch {
     res.writeHead(404).end('not found');
   }
@@ -81,7 +117,10 @@ export function createHttpServer(): http.Server {
         stopTunnel();
         res.on('finish', () =>
           setTimeout(() => {
-            killHeadlessBooted(); // don't leave windowless emulators running unseen
+            // Closes only emulators verified to still be windowless, so none are
+            // stranded unseen. An open one is left running — there is no way to
+            // ask over HTTP, and closing a window the user can see needs consent.
+            killHeadlessBooted();
             process.exit(0);
           }, 30),
         );
@@ -235,6 +274,24 @@ export function createHttpServer(): http.Server {
         }
       })
       // Static assets, else 404.
+      // The og:image for the shared link. Unauthenticated by necessity — the
+      // link unfurler that fetches it is an anonymous third party. 404s when no
+      // tunnel is open, so nothing is exposed on a purely local session.
+      .with({ path: OG_QR_PATH, method: 'GET' }, () => {
+        const og = ogQr();
+        if (!og) {
+          res.writeHead(404).end('not found');
+          return;
+        }
+        res.writeHead(200, {
+          'content-type': 'image/png',
+          'content-length': og.png.length,
+          // Previews are fetched once and cached by the unfurler; don't let a
+          // stale QR from a previous tunnel outlive this one on our side.
+          'cache-control': 'no-store',
+        });
+        res.end(og.png);
+      })
       .otherwise(() => serveStatic(res, path));
   });
 }

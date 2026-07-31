@@ -1,6 +1,8 @@
 const TYPE_INJECT_KEYCODE = 0;
 const TYPE_INJECT_TEXT = 1;
 const TYPE_INJECT_TOUCH_EVENT = 2;
+const TYPE_GET_CLIPBOARD = 8;
+const TYPE_SET_CLIPBOARD = 9;
 
 // Android MotionEvent.ACTION_* / KeyEvent.ACTION_* — passed through verbatim.
 export const ACTION_DOWN = 0;
@@ -77,5 +79,47 @@ export function text(value: string): Buffer {
   b.writeUInt8(TYPE_INJECT_TEXT, 0);
   b.writeUInt32BE(utf8.length, 1);
   utf8.copy(b, 5);
+  return b;
+}
+
+// GET_CLIPBOARD's copy_key: what the device presses before reporting its
+// clipboard. COPY means a live text selection gets copied first, so asking works
+// even when the user selected text but never tapped "Copy".
+export const COPY_KEY_NONE = 0;
+export const COPY_KEY_COPY = 1;
+export const COPY_KEY_CUT = 2;
+
+// scrcpy's DEVICE_MSG_MAX_SIZE (1<<18) minus the 5-byte header.
+const CLIPBOARD_TEXT_MAX = 262_139;
+
+// Cap at scrcpy's limit on a character boundary — a bare byte-slice could split a
+// multi-byte sequence and hand the device invalid UTF-8.
+function clampUtf8(value: string): Buffer {
+  const utf8 = Buffer.from(value, 'utf8');
+  if (utf8.length <= CLIPBOARD_TEXT_MAX) return utf8;
+  let end = CLIPBOARD_TEXT_MAX;
+  while (end > 0 && (utf8[end]! & 0xc0) === 0x80) end--; // walk back over continuation bytes
+  return utf8.subarray(0, end);
+}
+
+// GET_CLIPBOARD — 2 bytes.  type(1) copyKey(1)
+export function getClipboard(copyKey: number = COPY_KEY_COPY): Buffer {
+  const b = Buffer.alloc(2);
+  b.writeUInt8(TYPE_GET_CLIPBOARD, 0);
+  b.writeUInt8(copyKey, 1);
+  return b;
+}
+
+// SET_CLIPBOARD — 14 + len.  type(1) sequence(8) paste(1) length(4) utf8(length)
+// sequence 0 = don't ack (we never read acks); paste=true makes the device paste
+// into the focused field immediately, which is what a ⌘V should do.
+export function setClipboard(value: string, paste: boolean): Buffer {
+  const utf8 = clampUtf8(value);
+  const b = Buffer.alloc(14 + utf8.length);
+  b.writeUInt8(TYPE_SET_CLIPBOARD, 0);
+  b.writeBigUInt64BE(0n, 1);
+  b.writeUInt8(paste ? 1 : 0, 9);
+  b.writeUInt32BE(utf8.length, 10);
+  utf8.copy(b, 14);
   return b;
 }

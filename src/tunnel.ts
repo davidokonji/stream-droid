@@ -14,6 +14,7 @@ let backend: string | null = null;
 let controlMode = false; // whether this tunnel's shared link carries the control token
 let shareUrl: string | null = null; // carries ?k= in control mode
 let qrSvg: string | null = null;
+let qrPng: Buffer | null = null;
 
 export interface TunnelInfo {
   active: boolean;
@@ -37,6 +38,11 @@ export function tunnelInfo(host: boolean): TunnelInfo {
     shareUrl: host ? shareUrl : null,
     qr: host ? qrSvg : null,
   };
+}
+
+export function ogQr(): { png: Buffer; baseUrl: string } | null {
+  if (!qrPng || !current) return null;
+  return { png: qrPng, baseUrl: current.url };
 }
 
 // Prefer cloudflared unless localtunnel is forced; 'auto' falls back on failure.
@@ -140,6 +146,7 @@ export async function openTunnel(port: number, control: boolean): Promise<Tunnel
       controlMode = false;
       shareUrl = null;
       qrSvg = null;
+      qrPng = null;
       console.log('[stream-droid] tunnel closed (the relay dropped the connection)');
     }
   };
@@ -160,6 +167,7 @@ export async function openTunnel(port: number, control: boolean): Promise<Tunnel
   shareUrl = control ? `${handle.url}?k=${config.CONTROL_TOKEN}` : handle.url;
   const qr = await import('qrcode');
   qrSvg = await qr.toString(shareUrl, { type: 'svg', margin: 1 });
+  qrPng = await qr.toBuffer(shareUrl, { type: 'png', width: 600, margin: 2 });
   return tunnelInfo(true);
 }
 
@@ -172,6 +180,7 @@ export function stopTunnel(): boolean {
   controlMode = false;
   shareUrl = null;
   qrSvg = null;
+  qrPng = null;
   try {
     t.close();
   } catch (e) {

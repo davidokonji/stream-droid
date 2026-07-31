@@ -15,7 +15,9 @@ export type Control =
   | { type: 'tap'; x: number; y: number }
   | { type: 'swipe'; x1: number; y1: number; x2: number; y2: number; ms?: number }
   | { type: 'text'; value: string }
-  | { type: 'key'; key: string };
+  | { type: 'key'; key: string }
+  | { type: 'paste'; value: string }
+  | { type: 'copy' };
 
 export type Controller = (msg: Control) => void;
 
@@ -58,6 +60,8 @@ const ADB_KEYCODES: Record<string, string> = {
   Delete: 'KEYCODE_FORWARD_DEL',
 };
 
+const shellQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
+
 function adbController(size: CaptureMeta, adbArgs: (...r: string[]) => string[]): Controller {
   const px = (nx: number, ny: number): [number, number] => [Math.round(nx * size.w), Math.round(ny * size.h)];
   const input = (...rest: string[]) =>
@@ -76,13 +80,29 @@ function adbController(size: CaptureMeta, adbArgs: (...r: string[]) => string[])
         const [x2, y2] = px(m.x2, m.y2);
         input('swipe', `${x1}`, `${y1}`, `${x2}`, `${y2}`, String(m.ms ?? 200));
       })
-      // `input text` escapes spaces as %s and is picky with punctuation.
       .with({ type: 'text' }, (m) => {
-        if (m.value) input('text', m.value.replace(/ /g, '%s'));
+        if (m.value) input('text', shellQuote(m.value));
       })
       .with({ type: 'key' }, (m) => {
         if (ADB_KEYCODES[m.key]) input('keyevent', ADB_KEYCODES[m.key]!);
       })
+      .with({ type: 'paste' }, (m) => {
+        const steps: string[][] = [];
+        const lines = m.value.split(/\r?\n/);
+        lines.forEach((line, i) => {
+          if (line) steps.push(['text', shellQuote(line)]);
+          if (i < lines.length - 1) steps.push(['keyevent', 'KEYCODE_ENTER']);
+        });
+        const next = (): void => {
+          const step = steps.shift();
+          if (!step) return;
+          spawn('adb', adbArgs('shell', 'input', ...step), { stdio: 'ignore' })
+            .on('error', (e: Error) => log.error(e.message))
+            .on('close', next);
+        };
+        next();
+      })
+      .with({ type: 'copy' }, () => {})
       .exhaustive();
 }
 
@@ -136,6 +156,10 @@ function scrcpyController(
           write(sc.keycode(sc.ACTION_UP, code));
         }
       })
+      .with({ type: 'paste' }, (m) => {
+        if (m.value) write(sc.setClipboard(m.value, true));
+      })
+      .with({ type: 'copy' }, () => write(sc.getClipboard()))
       .exhaustive();
 
   return (msg) => (ready() ? encode(msg) : fallback(msg));
@@ -201,6 +225,10 @@ function grpcController(
           );
         }
       })
+      .with({ type: 'paste' }, (m) => {
+        if (m.value) emu.text(m.value);
+      })
+      .with({ type: 'copy' }, () => {})
       .exhaustive();
 }
 

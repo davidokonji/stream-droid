@@ -22,6 +22,7 @@ export interface CaptureHandle {
   // never connects). Both absent for backends without a control socket.
   writeControl?: (buf: Buffer) => void;
   controlReady?: () => boolean;
+  subscribeClipboard?: (cb: (text: string) => void) => void;
   // Present only for the gRPC backend — input via EmulatorController RPCs.
   emulator?: EmulatorInput;
 }

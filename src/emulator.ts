@@ -148,10 +148,11 @@ export function listDevices(): DeviceInfo[] {
 
 const bootedHeadless = new Set<string>();
 
-let psCache: { at: number; set: Set<string> } = { at: 0, set: new Set() };
-function psHeadlessAvds(): Set<string> {
-  if (Date.now() - psCache.at < 2000) return psCache.set;
+let psCache: { at: number; set: Set<string>; ok: boolean } = { at: 0, set: new Set(), ok: false };
+function psHeadlessInfo(): { set: Set<string>; ok: boolean } {
+  if (Date.now() - psCache.at < 2000) return psCache;
   const set = new Set<string>();
+  let ok = true;
   try {
     const ps = execFileSync('ps', ['-ax', '-o', 'command='], {
       encoding: 'utf8',
@@ -163,10 +164,14 @@ function psHeadlessAvds(): Set<string> {
       if (m) set.add(m[1]!);
     }
   } catch {
-    /* ps unavailable (e.g. Windows) — rely on bootedHeadless only */
+    ok = false; // ps unavailable (e.g. Windows) — rely on bootedHeadless only
   }
-  psCache = { at: Date.now(), set };
-  return set;
+  psCache = { at: Date.now(), set, ok };
+  return psCache;
+}
+
+function psHeadlessAvds(): Set<string> {
+  return psHeadlessInfo().set;
 }
 
 const lastActive = new Map<string, number>();
@@ -269,22 +274,48 @@ export function killEmulator(serial: string): void {
   execFileSync('adb', ['-s', serial, 'emu', 'kill']);
 }
 
-export function killHeadlessBooted(): void {
-  if (bootedHeadless.size === 0) return;
+export interface ShutdownCandidates {
+  headless: DeviceInfo[]; // ours, verified still windowless — safe to close unattended
+  windowed: DeviceInfo[]; // ours by record, but on screen now — must be confirmed first
+}
+
+export function shutdownCandidates(): ShutdownCandidates {
+  const out: ShutdownCandidates = { headless: [], windowed: [] };
+  if (bootedHeadless.size === 0) return out;
   let running: DeviceInfo[];
   try {
     running = listDevices();
   } catch {
-    return;
+    return out;
   }
-  for (const { serial, avd } of running) {
-    const name = avd.replace(/\s+\(\w{4}\)$/, ''); // strip the duplicate-model suffix
-    if (serial.startsWith('emulator-') && bootedHeadless.has(name)) {
-      try {
-        killEmulator(serial);
-      } catch {
-        /* best-effort cleanup on the way out */
-      }
+
+  const { set: live, ok } = psHeadlessInfo();
+  const stillRunning = new Set<string>();
+
+  for (const device of running) {
+    const name = device.avd.replace(/\s+\(\w{4}\)$/, ''); // strip the duplicate-model suffix
+    if (!device.serial.startsWith('emulator-') || !bootedHeadless.has(name)) continue;
+    stillRunning.add(name);
+    if (!ok || live.has(name)) out.headless.push(device);
+    else out.windowed.push(device);
+  }
+
+  for (const name of bootedHeadless) {
+    if (!stillRunning.has(name)) bootedHeadless.delete(name);
+  }
+  return out;
+}
+
+export function killEmulators(devices: DeviceInfo[]): void {
+  for (const { serial } of devices) {
+    try {
+      killEmulator(serial);
+    } catch {
+      /* best-effort cleanup on the way out */
     }
   }
+}
+
+export function killHeadlessBooted(): void {
+  killEmulators(shutdownCandidates().headless);
 }

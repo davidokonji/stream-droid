@@ -53,6 +53,10 @@ On the device surface:
 
 - **Click** = tap · **drag** = swipe · **type** = keys (printable chars are sent
   as text; Enter/Backspace/Tab/arrows as keys).
+- **⌘V / Ctrl+V** pastes the browser clipboard into the focused field on the
+  device; **⌘C / Ctrl+C** copies the device's clipboard to the browser (scrcpy
+  backend with control enabled only — see
+  [`control-and-semantics.md`](../../../docs/control-and-semantics.md)).
 - Coordinates are normalized, so it works at any size.
 
 ## Indicators

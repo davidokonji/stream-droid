@@ -35,6 +35,7 @@ Installed as a plugin, `drive` is on your PATH (as above); from a clone, run
   a page and vice-versa.
 - **Typing punctuation** can be fussy depending on the device's input method; for
   heavy or special-character input, an ADB IME (e.g. ADBKeyBoard) is more reliable.
+- **Clipboard** — the browser UI supports `⌘V` / `Ctrl+V` to paste and `⌘C` / `Ctrl+C` to copy (copy requires `--capture scrcpy`). The `drive.mjs` helper has no clipboard command — clipboard is a browser-UI-only feature.
 - **View-only sessions** reject control — if the session was shared view-only (see
   the [`share` skill](../../share/references/remote-tunnel.md)), drive from the
   local server instead.

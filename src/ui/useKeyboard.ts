@@ -14,7 +14,12 @@ const SPECIAL = new Set([
   'PageDown',
 ]);
 
-export function useKeyboard(send: (msg: Control) => void, enabled = true): void {
+export function useKeyboard(
+  send: (msg: Control) => void,
+  enabled = true,
+  canCopy = false,
+  readClipboard?: () => string,
+): void {
   useEffect(() => {
     if (!enabled) return;
     const onKey = (ev: KeyboardEvent): void => {
@@ -27,4 +32,32 @@ export function useKeyboard(send: (msg: Control) => void, enabled = true): void 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [send, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const onPaste = (ev: ClipboardEvent): void => {
+      const value = ev.clipboardData?.getData('text/plain');
+      if (!value) return;
+      send({ type: 'paste', value });
+      ev.preventDefault();
+    };
+
+    const onCopy = (ev: ClipboardEvent): void => {
+      if (!canCopy || !readClipboard) return;
+      const value = readClipboard();
+      if (value) {
+        ev.clipboardData?.setData('text/plain', value);
+        ev.preventDefault();
+      }
+      send({ type: 'copy' });
+    };
+
+    window.addEventListener('paste', onPaste);
+    window.addEventListener('copy', onCopy);
+    return () => {
+      window.removeEventListener('paste', onPaste);
+      window.removeEventListener('copy', onCopy);
+    };
+  }, [send, enabled, canCopy, readClipboard]);
 }
