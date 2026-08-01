@@ -6,7 +6,7 @@ compatibility: Runs via the `stream-droid` CLI (bun or node ≥ 20); public rela
 allowed-tools:
   - Bash(drive *)
 metadata:
-  version: '0.4.11'
+  version: '0.5.0'
 ---
 
 # share

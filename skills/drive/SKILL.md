@@ -9,7 +9,7 @@ allowed-tools:
   - Bash(stream-droid-server *)
   - Bash(stream-droid-check)
 metadata:
-  version: '0.4.11'
+  version: '0.5.0'
 ---
 
 # drive
